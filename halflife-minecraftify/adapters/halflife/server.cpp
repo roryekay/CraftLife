@@ -22,6 +22,7 @@ int effectFlags=0;
 ULONGLONG effectTime=0;
 bool ownedNoTarget=false;
 bool guestMovement=false,movementOwned=false,movementGround=false;
+mcvalve::MotionQueue motion;bool motionStep=false;ULONGLONG motionTime=0;
 int previousMoveType=MOVETYPE_WALK,movementFlags=0;
 void movementResult(CBasePlayer* player,int blocked){
     mcvalve::Packet out;out.kind=mcvalve::MovementResult;
@@ -50,6 +51,7 @@ void process(CBasePlayer* player,const mcvalve::Packet& p){
     switch(p.kind){
     case mcvalve::Movement: {
         if(!movementOwned||p.i[0]<0||p.i[0]>3){ack(p,-1);break;}
+        if(!motionStep){movementFlags=p.i[0];motion.push({p.f[0],p.f[1],p.f[2]});break;}
         Vector feet=player->pev->origin-Vector(0,0,36),target=feet+Vector(-p.f[2]*32,-p.f[0]*32,p.f[1]*32);
         if((target-feet).Length()>512){movementResult(player,7);break;}
         movementFlags=p.i[0];bool low=(movementFlags&3)!=0;float center=low?18.f:36.f;
@@ -61,7 +63,11 @@ void process(CBasePlayer* player,const mcvalve::Packet& p){
         auto moved=mcvalve::move({feet.x,feet.y,feet.z},{target.x,target.y,target.z},trace,movementGround,(movementFlags&1)!=0);
         UTIL_SetOrigin(player->pev,Vector(moved.feet[0],moved.feet[1],moved.feet[2]+36));player->pev->velocity=g_vecZero;
         movementGround=moved.grounded;
-        if(movementGround)player->pev->flags|=FL_ONGROUND;else player->pev->flags&=~FL_ONGROUND;
+        if(movementGround){
+            player->pev->flags|=FL_ONGROUND;TraceResult floor;Vector supportCenter=Vector(moved.feet[0],moved.feet[1],moved.feet[2]+center);
+            UTIL_TraceHull(supportCenter,supportCenter-Vector(0,0,2),dont_ignore_monsters,low?head_hull:human_hull,player->edict(),&floor);
+            player->pev->groundentity=floor.pHit;
+        }else{player->pev->flags&=~FL_ONGROUND;player->pev->groundentity=nullptr;}
         player->pev->view_ofs=Vector(0,0,((movementFlags&1)?13.6f:(movementFlags&2)?40.64f:51.84f)-36);
         movementResult(player,moved.blocked);break;
     }
@@ -109,7 +115,7 @@ void process(CBasePlayer* player,const mcvalve::Packet& p){
         if(tr.flFraction<1)damage(player,tr,gSkillData.plrDmgCrowbar,DMG_CLUB);
         ack(p,tr.flFraction<1,tr.pHit?ENTINDEX(tr.pHit):0);break;
     case mcvalve::Projectile:
-        if(impacts.count(p.i[0])){ack(p,1);break;}
+        if(impacts.count(p.i[0])){ack(p,0);break;}
         if((end-start).Length()>4096){ack(p,-1);break;}
         UTIL_TraceLine(start,end,dont_ignore_monsters,player->edict(),&tr);
         if(tr.flFraction<1){
@@ -120,7 +126,7 @@ void process(CBasePlayer* player,const mcvalve::Packet& p){
                 TraceResult hull;UTIL_TraceHull(feet,feet,dont_ignore_monsters,human_hull,player->edict(),&hull);
                 if(!hull.fStartSolid&&!hull.fAllSolid){UTIL_SetOrigin(player->pev,feet);player->pev->velocity=g_vecZero;player->TakeDamage(player->pev,player->pev,25,DMG_FALL);}
             } else if(p.i[1]==1)damage(player,tr,30.f*std::clamp(p.f[6],0.1f,4.f),DMG_BULLET);
-            ack(p,1,ENTINDEX(tr.pHit));
+            {mcvalve::Packet out;out.kind=mcvalve::Ack;out.sequence=p.sequence;out.i[0]=1;out.i[1]=tr.pHit?ENTINDEX(tr.pHit):0;mcvalve::toGuest(tr.vecEndPos,out.f);link.send(out);}
         }else ack(p,0);
         break;
     case mcvalve::Blast:
@@ -199,9 +205,15 @@ void MinecraftifyServerFrame(){
         else ack(p,0);
     }
     bool wantMovement=link.active()&&guestMovement&&player->IsAlive();
-    if(wantMovement&&!movementOwned){previousMoveType=player->pev->movetype;movementOwned=true;movementGround=(player->pev->flags&FL_ONGROUND)!=0;player->pev->movetype=MOVETYPE_NONE;player->pev->velocity=g_vecZero;}
-    if(!wantMovement&&movementOwned){player->pev->movetype=previousMoveType;player->pev->velocity=g_vecZero;player->pev->view_ofs=Vector(0,0,28);movementOwned=false;movementFlags=0;}
-    if(movementOwned){player->pev->movetype=MOVETYPE_NONE;player->pev->velocity=g_vecZero;player->pev->fuser2=100+player->pev->view_ofs.z;}else player->pev->fuser2=0;
+    if(wantMovement&&!movementOwned){previousMoveType=player->pev->movetype;movementOwned=true;movementGround=(player->pev->flags&FL_ONGROUND)!=0;player->pev->movetype=MOVETYPE_FLY;player->pev->velocity=g_vecZero;motion.clear();motionTime=GetTickCount64();}
+    if(!wantMovement&&movementOwned){player->pev->movetype=previousMoveType;player->pev->velocity=g_vecZero;player->pev->view_ofs=Vector(0,0,28);movementOwned=false;movementFlags=0;motion.clear();}
+    if(movementOwned){
+        auto now=GetTickCount64();float dt=float(now-motionTime)/1000.f;motionTime=now;
+        auto delta=motion.take(dt);mcvalve::Packet step;step.kind=mcvalve::Movement;step.i[0]=movementFlags;
+        for(int n=0;n<3;n++)step.f[n]=delta[n];motionStep=true;process(player,step);motionStep=false;
+    }
+
+    if(movementOwned){player->pev->movetype=MOVETYPE_FLY;player->pev->velocity=g_vecZero;player->pev->fuser2=100+player->pev->view_ofs.z;}else player->pev->fuser2=0;
     if(!link.active()||GetTickCount64()-effectTime>1000){speed=jump=1;effectFlags=0;}
     if(effectFlags&2){if(!(player->pev->flags&FL_NOTARGET)){player->pev->flags|=FL_NOTARGET;ownedNoTarget=true;}}
     else if(ownedNoTarget){player->pev->flags&=~FL_NOTARGET;ownedNoTarget=false;}

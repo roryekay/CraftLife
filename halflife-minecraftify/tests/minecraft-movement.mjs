@@ -44,7 +44,7 @@ try{
   await wait(()=>api.movementState()?.i[0]===0);await api.native(23,[heading[0],air[1]+4,heading[2]]);await delay(200);
   await key('jump',true);await key('jump',false);await wait(()=>api.state()?.gliding,2500);
   const before=feet(),beforeSpeed=Math.hypot(...api.state().velocity),rockets=api.state().offhandCount;
-  await key('use',true);await key('use',false);await wait(()=>api.state().offhandCount<rockets);await delay(850);
+  await key('use',true);await key('use',false);await wait(()=>api.state().offhandCount<rockets);await delay(450);
   const after=feet(),afterSpeed=Math.hypot(...api.state().velocity);
   assert(afterSpeed>beforeSpeed*1.15,'Real firework did not accelerate elytra flight');assert(horizontal(before,after)>2,'Gliding did not move the native player');assert.equal(api.counts().explosion,0,'Attached flight rocket caused a native blast');
   checks.push({name:'equipped real elytra glides; consumed firework accelerates native flight without a weapon blast',before,after,beforeSpeed,afterSpeed,rocketsBefore:rockets,rocketsAfter:api.state().offhandCount});

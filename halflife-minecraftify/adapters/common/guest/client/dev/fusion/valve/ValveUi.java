@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 
 public final class ValveUi implements ClientModInitializer {
     @Override public void onInitializeClient(){
+        if(System.getProperty("minecraftify.overscan")==null)System.setProperty("minecraftify.overscan","1.12");
         BridgeClient.travelMenu=()->Minecraft.getInstance().gui.setScreen(new TravelScreen());
         BridgeClient.menuAction=m->{if(Minecraft.getInstance().gui.screen() instanceof TravelScreen screen){
             int value=m.get("value").getAsInt();switch(m.get("action").getAsString()){

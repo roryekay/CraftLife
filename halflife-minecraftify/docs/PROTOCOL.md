@@ -57,3 +57,35 @@ Slot descriptors at256+128×slot:
 |104/112/120|float64×3|captured guest player feet (reserved for future reprojection)|
 
 Pixels at4096+stride×slot: world premultipliedRGBA8, world float32depth, then hands/HUD premultipliedRGBA8. Each layer occupies width×height×4bytes with no padding. Copy descriptor and all layers, fence, and recheck the same even sequence before accepting. Never upload from shared memory that the producer may overwrite. Failed reads preserve the last complete frame. Renderer contexts track producer lifetime and reopen mappings after guest restarts. Images expire after500ms without a new accepted capture.
+
+
+## CraftLife repair extensions
+
+The installed Valve adapters additionally implement native movement/result kinds
+30/31. Each accepted Minecraft displacement is queued for 50 ms and consumed in
+native frame slices with engine collision. Heartbeat integers 0/1 describe a
+Minecraft screen and requested movement owner; integer 2 identifies chat.
+Input mask bit 31 opens chat (T). Native kind 32 carries a Unicode character
+(integer 0, integer 2 = 1) or an allowed SDL keycode (integer 2 = 0), with modifier
+bits in integer 1. The relay forwards this only while chat is open. Guest `chat`
+and `text` inputs use real ChatScreen events, with SDL scancodes converted at the
+client boundary. Guest state includes `chat` and the actual `gamemode`.
+
+Projectile acknowledgements with status 1 carry the actual contact position in
+floats 0..2. `native_impact` includes `pos` and `visual`; only a live owned
+projectile can consume it. Explosive impacts add particles/sound, without adding
+another native damage operation for explosive arrows.
+
+The Source renderer can read `Local\MinecraftifyAnythingPose`, a 64-byte seqlocked
+record (magic 0x3150534d, version 1, size, producer PID, sequence, reserved,
+GetTickCount64 timestamp, XYZ/yaw/pitch/roll/FOV/aspect floats). The reader checks
+coherence, bounds and a 250 ms lease. Captured frame FOV records the actual
+overscanned render FOV; world reprojection never warps HUD coordinates.
+
+
+The Source test-only kind 29 fixture requires `-minecraftify-tests`: action 1
+creates a fixed collider under the player in checked air space, action 2 inspects
+support/position error, and action 0 removes it. It moves within 16 native units
+horizontally, 8 vertically and 25 degrees of yaw, with no arbitrary entity/model
+or console input. Normal relays expose no diagnostic command API. The developer
+movement-platform test also verifies jump detachment and return to ground.

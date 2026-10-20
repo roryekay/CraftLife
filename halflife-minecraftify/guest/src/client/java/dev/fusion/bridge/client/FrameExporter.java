@@ -56,6 +56,8 @@ public final class FrameExporter {
 	/** Near/far planes of the frame being rendered (the camera sets far each frame). */
 	private static final float NEAR = 0.05F;
 	private static float far = 1024.0F;
+	private static float captureFov=70;
+    public static void setCaptureFov(float fov){captureFov=fov;}
 	private static double cameraX, cameraY, cameraZ;
 
 	private static SharedMemory shm;
@@ -86,6 +88,7 @@ public final class FrameExporter {
 		long frame;
 		long captureNanos;
 		double cameraX, cameraY, cameraZ;
+        float fov;
 		double steveX, steveY, steveZ;
 
 		void allocate(final int w, final int h) {
@@ -191,7 +194,7 @@ public final class FrameExporter {
 		c.generation++;
 		c.busy = true;
 		c.busySince = now;
-		c.pose = pose;
+		c.pose = pose;c.fov=captureFov;
 		c.far = far;
 		c.frame = ++frameCounter;
 		c.captureNanos = now;
@@ -267,7 +270,7 @@ public final class FrameExporter {
 			m.set(INT, desc + 28, c.height);
 			m.set(FLOAT, desc + 32, NEAR);
 			m.set(FLOAT, desc + 36, c.far);
-			m.set(FLOAT, desc + 40, p.fov());
+			m.set(FLOAT, desc + 40, c.fov);
 			m.set(INT, desc + 44, (RenderSystem.getDevice().getDeviceInfo().isZZeroToOne() ? 1 : 0) | 2 | 4);
 			m.set(DOUBLE, desc + 48, c.cameraX);
 			m.set(DOUBLE, desc + 56, c.cameraY);

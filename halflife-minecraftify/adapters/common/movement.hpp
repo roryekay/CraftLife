@@ -2,8 +2,26 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <deque>
 namespace mcvalve {
 using MoveVec=std::array<float,3>;
+// Spread each Minecraft tick over native frames without changing its distance.
+class MotionQueue {
+    struct Slice{MoveVec delta;float seconds;};
+    std::deque<Slice> slices;
+public:
+    void clear(){slices.clear();}
+    void push(MoveVec delta){if(slices.size()>=4)slices.pop_front();slices.push_back({delta,.05f});}
+    MoveVec take(float seconds){
+        MoveVec out{};seconds=std::clamp(seconds,0.f,.05f);
+        while(seconds>0&&!slices.empty()){
+            auto& s=slices.front();float dt=std::min(seconds,s.seconds),fraction=dt/s.seconds;
+            for(int n=0;n<3;n++){float d=s.delta[n]*fraction;out[n]+=d;s.delta[n]-=d;}
+            seconds-=dt;s.seconds-=dt;if(s.seconds<.000001f)slices.pop_front();
+        }
+        return out;
+    }
+};
 inline MoveVec add(MoveVec a,MoveVec b){for(int i=0;i<3;i++)a[i]+=b[i];return a;}
 inline MoveVec sub(MoveVec a,MoveVec b){for(int i=0;i<3;i++)a[i]-=b[i];return a;}
 inline MoveVec mul(MoveVec a,float s){for(float& v:a)v*=s;return a;}

@@ -36,7 +36,7 @@ abstract class CameraMixin {
         setPosition(p.x(),p.y(),p.z());detached=!p.firstPerson();FrameExporter.setCameraPosition(p.x(),p.y(),p.z());
     }
     @Inject(method="calculateFov",at=@At("HEAD"),cancellable=true)
-    private void fov(float partial,CallbackInfoReturnable<Float> cir) { var p=HostState.frame();if(p!=null)cir.setReturnValue(p.fov()); }
+    private void fov(float partial,CallbackInfoReturnable<Float> cir) { var p=HostState.frame();if(p!=null){float fov=(float)Math.toDegrees(2*Math.atan(Math.tan(Math.toRadians(p.fov())/2)*Math.clamp(Double.parseDouble(System.getProperty("minecraftify.overscan","1")),1,1.3)));FrameExporter.setCaptureFov(fov);cir.setReturnValue(fov);} }
     @Inject(method="update",at=@At("TAIL"))
     private void planes(DeltaTracker delta,CallbackInfo ci) { FrameExporter.setFar(depthFar); }
 }

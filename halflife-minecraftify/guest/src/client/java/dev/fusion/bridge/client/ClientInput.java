@@ -9,7 +9,7 @@ import net.minecraft.client.Minecraft;
 
 /** Minecraft input only. No host weapon suppression or host movement assumptions. */
 final class ClientInput {
-    static final Set<String> TYPES=Set.of("key","slot","scroll","cursor","inventory","travel_menu","menu_action");
+    static final Set<String> TYPES=Set.of("key","slot","scroll","cursor","inventory","travel_menu","menu_action","chat","text");
     private static double cursorX,cursorY;
     private static int buttons;
     private static KeyMapping[] held(Minecraft mc) { return new KeyMapping[]{mc.options.keyAttack,mc.options.keyUse,mc.options.keyPickItem,mc.options.keyDrop,mc.options.keySwapOffhand,mc.options.keyInventory,mc.options.keyUp,mc.options.keyDown,mc.options.keyLeft,mc.options.keyRight,mc.options.keyJump,mc.options.keyShift,mc.options.keySprint}; }
@@ -26,7 +26,13 @@ final class ClientInput {
         String t=m.get("t").getAsString();
         boolean release=t.equals("key") && m.has("down") && !m.get("down").getAsBoolean();
         if(!HostState.control()&&!release)return;
-        if(t.equals("travel_menu")){releaseAll(mc);BridgeClient.travelMenu.run();}
+        if(t.equals("chat")&&mc.player!=null&&mc.gui.screen()==null){releaseAll(mc);mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("",false));}
+        else if(t.equals("text")&&mc.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen chat){
+            int key=m.get("code").getAsInt(),mods=m.get("modifiers").getAsInt()&0xc3;
+            if(m.get("character").getAsBoolean()){if(Character.isValidCodePoint(key)&&key>=32)chat.charTyped(new net.minecraft.client.input.CharacterEvent(key));}
+            else if(Set.of(13,27,8,127,9,1073741904,1073741903,1073741906,1073741905,1073741898,1073741901).contains(key))chat.keyPressed(new net.minecraft.client.input.KeyEvent(switch(key){case 13->40;case 27->41;case 8->42;case 9->43;case 127->76;case 1073741904->80;case 1073741903->79;case 1073741906->82;case 1073741905->81;case 1073741898->74;case 1073741901->77;default->0;},key,mods));
+        }
+        else if(t.equals("travel_menu")){releaseAll(mc);BridgeClient.travelMenu.run();}
         else if(t.equals("menu_action")&&mc.gui.screen()!=null)BridgeClient.menuAction.accept(m);
         else if(t.equals("inventory")&&mc.player!=null){
             releaseAll(mc);

@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {setTimeout as delay} from 'node:timers/promises';
 import {run} from '../adapters/common/relay.mjs';
 import {readFileSync} from 'node:fs';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {fileURLToPath} from 'node:url';
 const game=process.argv[2],mode=process.argv[3]??'blocks',api=run(game,{diagnostics:true,movement:process.argv.includes('--minecraft-movement')?true:undefined}),checks=[];
 async function wait(p,ms=10000){const end=Date.now()+ms;while(Date.now()<end){const v=p();if(v)return v;await delay(25);}throw Error('Timed out: '+JSON.stringify(api.state()));}
 async function key(k,down){api.guest({t:'key',k,down});await delay(100);}
@@ -11,6 +14,7 @@ async function use(ms=1){await key('use',true);await delay(ms);await key('use',f
 async function aim(at){await api.native(23,at);await delay(350);}
 async function click(ui,x,y){api.guest({t:'cursor',x:x/ui.uiWidth,y:y/ui.uiHeight,buttons:1,modifiers:0});await delay(100);api.guest({t:'cursor',x:x/ui.uiWidth,y:y/ui.uiHeight,buttons:0,modifiers:0});await delay(100);}
 async function swapReserve(column,row=0){api.guest({t:'inventory'});const ui=await wait(()=>api.state()?.screen&&api.state()?.inventoryLeft!==undefined?api.state():false);const source=[ui.inventoryLeft+16+column*18,ui.inventoryTop+92+row*18],dest=[ui.inventoryLeft+160,ui.inventoryTop+150];await click(ui,...source);await click(ui,...dest);await click(ui,...source);await wait(()=>api.state()?.carried==='minecraft:air');await key('escape',true);await select(8);}
+async function restoreFirework(){await select(8);await key('swap',true);await key('swap',false);await swapReserve(2);await select(0);}
 try{
   await wait(()=>api.state()?.active&&api.state()?.control&&api.state()?.hp>0&&api.pose(),30000);
   if(api.state().screen)await key('escape',true);
@@ -49,12 +53,19 @@ try{
     await aim([base[0]+3,base[1]-.5,base[2]]);await use();
     await wait(()=>api.state().count<before);await wait(()=>Math.hypot(...api.pose().f.slice(3,6).map((v,n)=>v-base[n]))>.5,8000);
     checks.push({name:'real thrown ender pearl consumed and moved the native player',from:base,to:api.pose().f.slice(3,6)});
+  }else if(mode==='restore-firework'){
+    await restoreFirework();checks.push({name:'original food slot and flight-rocket offhand restored'});
   }else if(mode==='firework'){
+    await api.native(24,[100]);
     await swapReserve(2);await select(8,'minecraft:firework_rocket');await key('swap',true);await key('swap',false);
     await select(3,'minecraft:crossbow');await aim([base[0]+3,base[1]+.3,base[2]]);
-    await use(1600);const before=api.counts().explosion;await use(100);
+    await use(1600);const before=api.counts().explosion;
+    const alpha=process.argv.includes('--world-alpha')?promisify(execFile)(fileURLToPath(new URL('../local/renderer32/Release/frame_probe.exe',import.meta.url)),['3','--world-alpha']):null;
+    if(alpha)await delay(300);await use(100);
     await wait(()=>api.counts().explosion>before,8000);await wait(()=>api.operations().explosion?.status===1);
     checks.push({name:'real crossbow firework burst produced native explosion'});
+    if(alpha){const report=JSON.parse((await alpha).stdout.trim().split(/\r?\n/).at(-1));assert(report.maxWorldAlpha>report.firstWorldAlpha+200,'Burst did not create visible world pixels: '+JSON.stringify(report));checks.push({name:'actual Minecraft colour capture contains the visible explosion burst',...report});}
+    await restoreFirework();
   }else if(mode==='potion'){
     // Swiftness is reserve slot 14 in the original kit.
     await swapReserve(5);await select(8,'minecraft:potion');await use(1900);await wait(()=>api.state().item==='minecraft:glass_bottle');

@@ -76,7 +76,12 @@ public final class GameplayEvents {
         if(t.equals("native_impact")){
             int id=m.get("id").getAsInt();
             for(var level:server.getAllLevels()){var entity=level.getEntity(id);if(entity instanceof Projectile p&&p.getOwner() instanceof ServerPlayer){
+                if(m.has("pos")){var pos=m.getAsJsonArray("pos");if(pos.size()==3){double x=pos.get(0).getAsDouble(),y=pos.get(1).getAsDouble(),z=pos.get(2).getAsDouble();if(Double.isFinite(x)&&Double.isFinite(y)&&Double.isFinite(z)&&p.position().distanceToSqr(new Vec3(x,y,z))<256)p.setPos(x,y,z);}}
                 if(p instanceof FireworkRocketEntity)((dev.fusion.bridge.mixin.FireworkInvoker)p).minecraftify$explode(level);
+                if(m.has("visual")&&m.get("visual").getAsBoolean()){
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION_EMITTER,p.getX(),p.getY(),p.getZ(),1,0,0,0,0);
+                    level.playSound(null,p.getX(),p.getY(),p.getZ(),net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(),net.minecraft.sounds.SoundSource.BLOCKS,2,1);
+                }
                 p.discard();
             }}
         }else if(t.equals("host_health")){

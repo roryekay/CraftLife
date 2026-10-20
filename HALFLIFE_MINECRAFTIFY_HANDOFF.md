@@ -81,3 +81,15 @@ For rebuilding, use the primary project's `tools/prepare-valve-runtime.ps1`,
 requires the reviewed Fabric 0.19.5 / Minecraft 26.3 launcher version. Close the
 launcher before reinstalling profiles. The native start scripts use the local
 recorded Node runtime and stop their relay when the native process exits.
+
+## October 20 repair controls
+
+Keep using **I** for inventory. Press **T**, type `/gamemode creative` or
+`/gamemode survival`, then **Enter**. **Escape** closes chat. These are Minecraft
+commands in the isolated single-player world. Native campaign hazards/scripts
+still apply; spectator collision bypass is not implemented.
+
+The installed repair includes native-frame movement smoothing, moving-floor
+handling, captured-camera reprojection, and visible/sounded explosive crossbow
+impacts. The real HL1 tram and a translating/rising/rotating HL2 collider passed, including jumping off. Full campaign moving-object behavior still needs wider testing. See
+`halflife-minecraftify/STATUS.md` for exact validation and remaining limitations.

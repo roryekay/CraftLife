@@ -104,6 +104,7 @@ DepthGate=0
 }
 $cfg=@'
 // Isolated Minecraftify controls. Native movement/use remain available.
+bind "t" ""
 bind "i" ""
 bind "f5" ""
 bind "f8" ""

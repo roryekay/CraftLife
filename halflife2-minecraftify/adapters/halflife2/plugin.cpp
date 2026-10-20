@@ -2,6 +2,8 @@
 #include "../../../halflife-minecraftify/adapters/common/wire.hpp"
 #include "../../../halflife-minecraftify/adapters/common/movement.hpp"
 #include "../../../halflife-minecraftify/adapters/common/moments.hpp"
+#include <fusion/pose_channel.hpp>
+#include "../../../halflife-minecraftify/adapters/common/text_input.hpp"
 #include "interface.h"
 #include "engine/iserverplugin.h"
 #include "eiface.h"
@@ -39,7 +41,9 @@ IEngineTrace* traces=nullptr;IBaseClientDLL* client=nullptr;CGlobalVars* globals
 mcvalve::Link link;bool paused=false;uint32_t sequence=0;char mapName[64]{};
 IVEngineClient* engineClient=nullptr;
 IClientTools* clientTools=nullptr;
-bool inventory=false,mouseReleased=false;
+fusion::PoseWriter compositePose;
+bool inventory=false,mouseReleased=false,chat=false;
+mcvalve::TextInput textInput;
 // The current Steam client also uses SDL relative capture. IN_DeactivateMouse
 // alone leaves that capture active, recentering clicks in Minecraft menus.
 bool relativeOwned=false;int previousRelative=0;
@@ -70,12 +74,19 @@ bool speedEntity=false,fireFilter=false;
 bool nativeHidden=false;
 bool guestMovement=false,movementOwned=false,movementGround=false;
 bool movementBindings=false;
+mcvalve::MotionQueue motion;bool motionStep=false;ULONGLONG motionTime=0;
 int previousMoveType=MOVETYPE_WALK,movementFlags=0;
 float movementEye=51.84f;
 Vector originalEye(0,0,64);
 bool gravityOwned=false;
 float originalGravity=1;
 CBaseHandle testTarget;
+CBaseHandle supportEntity;
+Vector supportLocal;
+CBaseHandle testPlatform;
+Vector platformOrigin;
+ULONGLONG platformStarted=0;
+edict_t* platformEdict(){auto* e=testPlatform.IsValid()?engine->PEntityOfEntIndex(testPlatform.GetEntryIndex()):nullptr;return e&&!e->IsFree()&&e->GetUnknown()&&e->GetUnknown()->GetRefEHandle()==testPlatform?e:nullptr;}
 ULONGLONG testInputDeadline=0;
 char originalDamageFilter[128]{};
 Vector native(const float* p){float out[3];mcvalve::toHost(p,out);return Vector(out[0],out[1],out[2]);}
@@ -90,8 +101,8 @@ float eyeHeight(IPlayerInfo* p){
 // The SDK tool accepts an EYE position, not an entity/feet origin.
 bool snapFeet(IPlayerInfo* p,const Vector& foot,const QAngle& angles){bool ok=tools->SnapPlayerToPosition(foot+Vector(0,0,eyeHeight(p)),angles);if(ok&&engineClient){QAngle view=angles;engineClient->SetViewAngles(view);}return ok;}
 float skill(const char* name,float fallback){const auto* variable=cvars?cvars->FindVar(name):nullptr;if(!variable)return fallback;float value=variable->GetFloat();return std::isfinite(value)?std::clamp(value,0.f,1000.f):fallback;}
-struct Filter:ITraceFilter{IHandleEntity* ignore;explicit Filter(IHandleEntity* p):ignore(p){}
-    bool ShouldHitEntity(IHandleEntity* e,int)override{return e!=ignore;}
+struct Filter:ITraceFilter{IHandleEntity* ignore;IHandleEntity* support=nullptr;explicit Filter(IHandleEntity* p):ignore(p){}
+    bool ShouldHitEntity(IHandleEntity* e,int)override{return e!=ignore&&e!=support;}
     TraceType_t GetTraceType()const override{return TRACE_EVERYTHING;}};
 struct Damage:CTakeDamageInfo{
     Damage(IServerUnknown* player,float amount,int type,const Vector& at,const Vector& force){
@@ -106,6 +117,7 @@ void process(edict_t* edict,IPlayerInfo* info,const mcvalve::Packet& p){
     Vector a=native(p.f),b=native(p.f+3);
     if(p.kind==mcvalve::Movement){
         if(!movementOwned||p.i[0]<0||p.i[0]>3){ack(p,-1);return;}
+        if(!motionStep){movementFlags=p.i[0];motion.push({p.f[0],p.f[1],p.f[2]});return;}
         Vector foot=info->GetAbsOrigin();a=foot+Vector(-p.f[2]*32,-p.f[0]*32,p.f[1]*32);if((a-foot).Length()>512){ack(p,-1);return;}
         movementFlags=p.i[0];float height=(movementFlags&1)?19.2f:(movementFlags&2)?48.f:57.6f;
         auto trace=[&](mcvalve::MoveVec x,mcvalve::MoveVec y){
@@ -118,11 +130,52 @@ void process(edict_t* edict,IPlayerInfo* info,const mcvalve::Packet& p){
         tools->SetKeyValue(unknown->GetBaseEntity(),"view_ofs",Vector(0,0,movementEye));
         QAngle look=info->GetAbsAngles();if(engineClient)engineClient->GetViewAngles(look);
         snapFeet(info,Vector(moved.feet[0],moved.feet[1],moved.feet[2]),look);edict->StateChanged();movementGround=moved.grounded;
+        supportEntity.Term();
+        if(movementGround){
+            Ray_t down;down.Init(Vector(moved.feet[0],moved.feet[1],moved.feet[2]),Vector(moved.feet[0],moved.feet[1],moved.feet[2]-2),Vector(-9.6f,-9.6f,0),Vector(9.6f,9.6f,height));
+            trace_t floor;traces->TraceRay(down,MASK_PLAYERSOLID,&filter,&floor);
+            for(int n=1;n<globals->maxEntities&&floor.m_pEnt;n++){
+                auto* e=engine->PEntityOfEntIndex(n);if(!e||e->IsFree()||!e->GetUnknown()||e->GetUnknown()->GetBaseEntity()!=floor.m_pEnt)continue;
+                auto* c=e->GetCollideable();if(!c)break;
+                supportEntity=e->GetUnknown()->GetRefEHandle();const auto& matrix=c->CollisionToWorldTransform();
+                Vector offset=info->GetAbsOrigin()-Vector(matrix[0][3],matrix[1][3],matrix[2][3]);
+                for(int axis=0;axis<3;axis++)supportLocal[axis]=offset.x*matrix[0][axis]+offset.y*matrix[1][axis]+offset.z*matrix[2][axis];
+                break;
+            }
+        }
         mcvalve::Packet result;result.kind=mcvalve::MovementResult;mcvalve::toGuest(info->GetAbsOrigin().Base(),result.f);
         result.i[0]=movementGround;result.i[1]=moved.blocked;result.i[2]=movementFlags;link.send(result);return;
     }
-    if(p.kind>=mcvalve::TestSpawn&&p.kind<=mcvalve::TestRay){
+    if(p.kind>=mcvalve::TestSpawn&&p.kind<=mcvalve::TestPlatform){
         if(!CommandLine()->FindParm("-minecraftify-tests")){ack(p,-2);return;}
+        if(p.kind==mcvalve::TestPlatform){
+            auto* platform=platformEdict();
+            if(p.i[0]==0){if(platform)tools->RemoveEntity(platform->GetUnknown()->GetBaseEntity());testPlatform.Term();supportEntity.Term();ack(p,1);return;}
+            if(p.i[0]==1){
+                if(platform){ack(p,-1);return;}
+                Vector destination=info->GetAbsOrigin()+Vector(6,0,32.03125f);
+                Ray_t check;check.Init(destination,destination,Vector(-9.6f,-9.6f,0),Vector(9.6f,9.6f,57.6f));trace_t safe;traces->TraceRay(check,MASK_PLAYERSOLID,&filter,&safe);
+                if(safe.startsolid||safe.allsolid){ack(p,-1);return;}
+                auto* entity=tools->CreateEntityByName("prop_dynamic_override");if(!entity){ack(p,-1);return;}
+                platformOrigin=info->GetAbsOrigin()+Vector(0,0,16);
+                tools->SetKeyValue(entity,"model","models/minecraftify/block.mdl");tools->SetKeyValue(entity,"origin",platformOrigin);tools->SetKeyValue(entity,"solid","6");tools->SetKeyValue(entity,"rendermode","10");tools->DispatchSpawn(entity);
+                for(int n=1;n<globals->maxEntities;n++){auto* e=engine->PEntityOfEntIndex(n);if(e&&!e->IsFree()&&e->GetUnknown()&&e->GetUnknown()->GetBaseEntity()==entity){testPlatform=e->GetUnknown()->GetRefEHandle();break;}}
+                if(!testPlatform.IsValid()){tools->RemoveEntity(entity);ack(p,-1);return;}
+                destination.z=platformOrigin.z+platformEdict()->GetCollideable()->OBBMaxs().z+.03125f;platformStarted=GetTickCount64()+500;snapFeet(info,destination,info->GetAbsAngles());motion.clear();supportEntity.Term();ack(p,1,testPlatform.GetEntryIndex());return;
+            }
+            if(p.i[0]==2&&platform){
+                mcvalve::Packet out;out.kind=mcvalve::Ack;out.sequence=p.sequence;out.i[0]=1;out.i[1]=testPlatform.GetEntryIndex();out.i[2]=supportEntity==testPlatform;out.i[3]=movementGround;
+                Ray_t floorProbe;floorProbe.Init(info->GetAbsOrigin()+Vector(0,0,4),info->GetAbsOrigin()-Vector(0,0,4),Vector(-9.6f,-9.6f,0),Vector(9.6f,9.6f,57.6f));trace_t probe;traces->TraceRay(floorProbe,MASK_PLAYERSOLID,&filter,&probe);
+                out.i[4]=probe.startsolid;out.f[8]=probe.fraction;out.f[9]=probe.plane.normal.z;
+                for(int n=1;n<globals->maxEntities;n++){auto* e=engine->PEntityOfEntIndex(n);if(e&&!e->IsFree()&&e->GetUnknown()&&e->GetUnknown()->GetBaseEntity()==probe.m_pEnt){out.i[5]=n;break;}}
+                out.f[10]=platform->GetCollideable()->OBBMaxs().z;out.f[11]=platform->GetCollideable()->GetCollisionOrigin().z;
+                out.i[6]=supportEntity.IsValid()?supportEntity.GetEntryIndex():-1;
+                const auto& m=platform->GetCollideable()->CollisionToWorldTransform();Vector expected;
+                for(int n=0;n<3;n++)expected[n]=m[n][0]*6+m[n][2]*(platform->GetCollideable()->OBBMaxs().z+.03125f)+m[n][3];
+                out.f[0]=(info->GetAbsOrigin()-expected).Length()/32;mcvalve::toGuest(info->GetAbsOrigin().Base(),out.f+2);mcvalve::toGuest(expected.Base(),out.f+5);link.send(out);return;
+            }
+            ack(p,-1);return;
+        }
         if(p.kind==mcvalve::TestInspect&&p.i[0]==98){mcvalve::Packet result;result.kind=mcvalve::Ack;result.sequence=p.sequence;result.i[0]=1;result.i[7]=movementOwned;result.i[6]=-1;char value[64]{};if(tools->GetKeyValue(unknown->GetBaseEntity(),"movetype",value,sizeof(value)))result.i[6]=atoi(value);mcvalve::toGuest(info->GetAbsOrigin().Base(),result.f+2);link.send(result);return;}
         if(p.kind==mcvalve::TestBlock||p.kind==mcvalve::TestRay){auto event=p;event.kind=p.kind==mcvalve::TestBlock?mcvalve::Block:mcvalve::Projectile;process(edict,info,event);return;}
         if(p.kind==mcvalve::TestInput){
@@ -169,7 +222,7 @@ void process(edict_t* edict,IPlayerInfo* info,const mcvalve::Packet& p){
         result.f[5]=skill("sk_plr_dmg_crowbar",25);result.f[6]=skill("sk_plr_dmg_pistol",5);link.send(result);return;
     }
     if(p.kind==mcvalve::Strike||p.kind==mcvalve::Projectile){
-        if(p.kind==mcvalve::Projectile&&impacts.count(p.i[0])){ack(p,1);return;}
+        if(p.kind==mcvalve::Projectile&&impacts.count(p.i[0])){ack(p,0);return;}
         if(p.kind==mcvalve::Strike){
             if(GetTickCount64()-lastMelee<450){ack(p,0);return;}lastMelee=GetTickCount64();
             a=info->GetAbsOrigin()+Vector(0,0,eyeHeight(info));auto command=info->GetLastUserCommand();
@@ -195,7 +248,7 @@ void process(edict_t* edict,IPlayerInfo* info,const mcvalve::Packet& p){
             }
             int hitIndex=0;
             for(int n=0;n<globals->maxEntities;n++){auto* e=engine->PEntityOfEntIndex(n);if(e&&!e->IsFree()&&e->GetUnknown()&&e->GetUnknown()->GetBaseEntity()==hit.m_pEnt){hitIndex=n;break;}}
-            ack(p,1,hitIndex);
+            {mcvalve::Packet out;out.kind=mcvalve::Ack;out.sequence=p.sequence;out.i[0]=1;out.i[1]=hitIndex;mcvalve::toGuest(hit.endpos.Base(),out.f);link.send(out);}
         }else ack(p,0);
     }else if(p.kind==mcvalve::Blast){
         if((a-info->GetAbsOrigin()).Length()>8192){ack(p,-1);return;}
@@ -281,7 +334,7 @@ public:
  }
  void Unload()override{relativeMouse(false);if(mouseReleased&&client)client->IN_ActivateMouse();} void Pause()override{paused=true;}void UnPause()override{paused=false;}
  const char* GetPluginDescription()override{return "Minecraftify Anything / Half-Life 2 development adapter";}
- void LevelInit(const char* name)override{strncpy(mapName,name,63);link.scene=uint32_t(GetTickCount64());link.lastSequence=0;blocks.clear();impacts.clear();testTarget.Term();nativeHidden=false;speedEntity=fireFilter=false;appliedSpeed=-1;potionFlags=appliedFlags=0;potionSpeed=potionJump=1;originalDamageFilter[0]=0;guestMovement=movementOwned=movementBindings=false;movementFlags=0;}
+ void LevelInit(const char* name)override{strncpy(mapName,name,63);link.scene=uint32_t(GetTickCount64());link.lastSequence=0;blocks.clear();impacts.clear();testTarget.Term();testPlatform.Term();supportEntity.Term();motion.clear();nativeHidden=false;speedEntity=fireFilter=false;appliedSpeed=-1;potionFlags=appliedFlags=0;potionSpeed=potionJump=1;originalDamageFilter[0]=0;guestMovement=movementOwned=movementBindings=false;movementFlags=0;}
  void ServerActivate(edict_t*,int,int)override{}
  void GameFrame(bool simulating)override{
     if(paused||!globals||globals->maxClients!=1)return;
@@ -289,21 +342,45 @@ public:
     auto* player=players->GetPlayerInfo(edict);if(!player||!player->IsConnected())return;
     mcvalve::Packet p;
     for(int n=0;n<128&&link.receive(p);n++){
-        if(p.kind==mcvalve::Heartbeat){if(p.scene==link.scene){if(!link.active()){link.lastSequence=0;impacts.clear();}link.lease=GetTickCount64();inventory=p.i[0]!=0;guestMovement=p.i[1]==1;}continue;}
+        if(p.kind==mcvalve::Heartbeat){if(p.scene==link.scene){if(!link.active()){link.lastSequence=0;impacts.clear();}link.lease=GetTickCount64();inventory=p.i[0]!=0;chat=p.i[2]==1;guestMovement=p.i[1]==1;}continue;}
         if(!simulating||!link.active()||p.scene!=link.scene||p.sequence<=link.lastSequence)continue;
         link.lastSequence=p.sequence;
         if(!player->IsDead()||p.kind==mcvalve::TestInspect||p.kind==mcvalve::TestRemove||p.kind==mcvalve::Projectile||p.kind==mcvalve::Blast||p.kind==mcvalve::Block)process(edict,player,p);
         else ack(p,0);
     }
     bool wantMovement=link.active()&&guestMovement&&!player->IsDead();
+    if(simulating&&link.active())if(auto* platform=platformEdict()){
+        float t=GetTickCount64()>platformStarted?float(GetTickCount64()-platformStarted)/1000.f:0;
+        tools->SetKeyValue(platform->GetUnknown()->GetBaseEntity(),"origin",platformOrigin+Vector(16*sinf(t),12*sinf(t*.7f),8*sinf(t*.9f)));
+        char angles[64];std::snprintf(angles,sizeof(angles),"0 %.3f 0",25*sinf(t*.8f));tools->SetKeyValue(platform->GetUnknown()->GetBaseEntity(),"angles",angles);platform->StateChanged();
+    }
     auto* playerEntity=edict->GetUnknown()->GetBaseEntity();
     if(wantMovement&&!movementOwned){
         char value[128]{};previousMoveType=MOVETYPE_WALK;if(tools->GetKeyValue(playerEntity,"movetype",value,sizeof(value)))previousMoveType=atoi(value);
         originalEye=Vector(0,0,64);if(tools->GetKeyValue(playerEntity,"view_ofs",value,sizeof(value)))std::sscanf(value,"%f %f %f",&originalEye.x,&originalEye.y,&originalEye.z);
-        movementOwned=true;movementGround=true;tools->SetMoveType(playerEntity,MOVETYPE_NONE);
+        movementOwned=true;movementGround=true;motion.clear();motionTime=GetTickCount64();tools->SetMoveType(playerEntity,MOVETYPE_FLY);
     }
-    if(!wantMovement&&movementOwned){tools->SetMoveType(playerEntity,previousMoveType);tools->SetKeyValue(playerEntity,"view_ofs",originalEye);edict->StateChanged();movementOwned=false;movementFlags=0;}
-    if(movementOwned)tools->SetMoveType(playerEntity,MOVETYPE_NONE);
+    if(!wantMovement&&movementOwned){tools->SetMoveType(playerEntity,previousMoveType);tools->SetKeyValue(playerEntity,"view_ofs",originalEye);edict->StateChanged();movementOwned=false;movementFlags=0;motion.clear();supportEntity.Term();}
+    if(movementOwned){
+        tools->SetMoveType(playerEntity,MOVETYPE_FLY);tools->SetKeyValue(playerEntity,"velocity",Vector(0,0,0));
+        if(supportEntity.IsValid()){
+            auto* support=engine->PEntityOfEntIndex(supportEntity.GetEntryIndex());
+            if(support&&!support->IsFree()&&support->GetUnknown()&&support->GetUnknown()->GetRefEHandle()==supportEntity&&support->GetCollideable()){
+                const auto& m=support->GetCollideable()->CollisionToWorldTransform();Vector target;
+                for(int n=0;n<3;n++)target[n]=m[n][0]*supportLocal.x+m[n][1]*supportLocal.y+m[n][2]*supportLocal.z+m[n][3];
+                Vector from=player->GetAbsOrigin();
+                if((target-from).Length()<=128){
+                    Filter carry(edict->GetUnknown());carry.support=support->GetUnknown();
+                    Ray_t sweep;sweep.Init(from,target,Vector(-9.6f,-9.6f,0),Vector(9.6f,9.6f,(movementFlags&1)?19.2f:(movementFlags&2)?48.f:57.6f));
+                    trace_t safe;traces->TraceRay(sweep,MASK_PLAYERSOLID,&carry,&safe);
+                    if(!safe.startsolid&&!safe.allsolid){QAngle look=player->GetAbsAngles();if(engineClient)engineClient->GetViewAngles(look);snapFeet(player,safe.endpos,look);edict->StateChanged();}
+                }
+            }
+        }
+        auto now=GetTickCount64();float dt=float(now-motionTime)/1000.f;motionTime=now;
+        auto delta=motion.take(dt);mcvalve::Packet step;step.kind=mcvalve::Movement;step.i[0]=movementFlags;
+        for(int n=0;n<3;n++)step.f[n]=delta[n];motionStep=true;process(edict,player,step);motionStep=false;
+    }
     if(!client){auto module=GetModuleHandleA("client.dll");if(module){auto f=reinterpret_cast<CreateInterfaceFn>(GetProcAddress(module,"CreateInterface"));if(f){client=static_cast<IBaseClientDLL*>(f(CLIENT_DLL_INTERFACE_VERSION,nullptr));clientTools=static_cast<IClientTools*>(f(VCLIENTTOOLS_INTERFACE_VERSION,nullptr));}}}
     if(!engineClient){auto module=GetModuleHandleA("engine.dll");if(module){auto f=reinterpret_cast<CreateInterfaceFn>(GetProcAddress(module,"CreateInterface"));if(f)engineClient=static_cast<IVEngineClient*>(f(VENGINE_CLIENT_INTERFACE_VERSION,nullptr));}}
     DWORD processId=0;HWND window=GetForegroundWindow();GetWindowThreadProcessId(window,&processId);bool focused=processId==GetCurrentProcessId();
@@ -317,6 +394,8 @@ public:
     if(focused&&(GetAsyncKeyState(VK_F6)&0x8001))mask|=1u<<21;
     const int menuKeys[]={VK_F9,VK_F10,VK_PRIOR,VK_NEXT};for(int n=0;n<4;n++)if(focused&&(GetAsyncKeyState(menuKeys[n])&0x8001))mask|=1u<<(27+n);
     const int movementKeys[]={'W','S','A','D',VK_SPACE};for(int n=0;n<5;n++)if(focused&&(GetAsyncKeyState(movementKeys[n])&0x8001))mask|=1u<<(22+n);
+    if(focused&&(GetAsyncKeyState('T')&0x8001))mask|=1u<<31;
+    textInput.poll(link,focused&&link.active()&&chat);
     mcvalve::Packet input;input.kind=mcvalve::Input;input.i[0]=mask;
     RECT rect{};POINT cursor{};GetClientRect(window,&rect);GetCursorPos(&cursor);ScreenToClient(window,&cursor);
     input.i[7]=(inventory?1:0)|(relativeOwned?4:0)|(surfaceReleased?8:0)|(mouseSurface?16:0);
@@ -327,10 +406,10 @@ public:
         bool release=inventory;
         relativeMouse(release);
         if(release)client->IN_DeactivateMouse();else if(mouseReleased)client->IN_ActivateMouse();mouseReleased=release;
-        if(engineClient&&(mask&8)&&!(lastMask&8))engineClient->ClientCmd_Unrestricted(clientTools&&clientTools->IsRenderingThirdPerson()?"firstperson":"thirdperson");
+        if(engineClient&&!chat&&(mask&8)&&!(lastMask&8))engineClient->ClientCmd_Unrestricted(clientTools&&clientTools->IsRenderingThirdPerson()?"firstperson":"thirdperson");
     }else if(client){
         // Never recapture the desktop mouse while another window has focus.
-        if(!focused){relativeMouse(true);client->IN_DeactivateMouse();mouseReleased=true;}
+        if(!focused&&!mouseReleased){relativeMouse(true);client->IN_DeactivateMouse();mouseReleased=true;}
         else if(mouseReleased){relativeMouse(false);client->IN_ActivateMouse();mouseReleased=false;}
     }
     lastMask=mask;
@@ -372,7 +451,8 @@ public:
         cam.f[6]=180.f-view.angles.y;cam.f[7]=view.angles.x;cam.f[8]=-view.angles.z;
         cam.f[9]=mcvalve::verticalFov(view.fov,view.height>0?float(view.width)/view.height:16.f/9.f);
         Ray_t floorRay;Vector foot=player->GetAbsOrigin();floorRay.Init(foot+Vector(0,0,.5f),foot-Vector(0,0,2),player->GetPlayerMins(),player->GetPlayerMaxs());Filter floorFilter(edict->GetUnknown());trace_t floorHit;traces->TraceRay(floorRay,MASK_PLAYERSOLID,&floorFilter,&floorHit);
-        cam.i[0]=focused&&simulating&&!player->IsDead();cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;link.send(cam);
+        cam.i[0]=focused&&simulating&&!player->IsDead();cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;
+        compositePose.publish({cam.f[0],cam.f[1],cam.f[2],cam.f[6],cam.f[7],cam.f[8],cam.f[9],view.height>0?float(view.width)/view.height:16.f/9});link.send(cam);
     }
     if(link.active()&&GetTickCount64()-lastTerrain>50){
         lastTerrain=GetTickCount64();float guest[3];mcvalve::toGuest(player->GetAbsOrigin().Base(),guest);

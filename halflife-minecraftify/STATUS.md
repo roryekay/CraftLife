@@ -5,6 +5,71 @@ native runtimes and official Minecraft Launcher profiles. HalfCraft is not used.
 These are experimental playable integrations, not full campaign certifications.
 Read [the play guide](../HALFLIFE_MINECRAFTIFY_HANDOFF.md).
 
+## Movement/render/chat repair (October 20)
+
+Inventory remains on I (confirmed working by the user). T opens real Minecraft
+chat; `/gamemode creative` and `/gamemode survival` use the integrated world's
+ordinary command handler. Text is forwarded only from the focused native game
+window while chat is open. Enter, Escape, editing keys and Unicode text have a
+separate path, so typing does not select hotbar slots or toggle I/F6/F8.
+
+Minecraft's actual 20 Hz displacement is now spread over native frames, retaining
+native swept collision. The native body uses zero-velocity MOVETYPE_FLY so pushers
+can carry it; GoldSrc records its ground entity, and Source tracks the floor's
+local transform and checks carried movement against other collision. Handles,
+queued motion and movement ownership reset across detach and map changes.
+
+Captured world images are reprojected to the latest native camera pose, including
+depth-based translation; HUD stays in screen space. A 12% guest overscan supplies
+extra pixels during turns. Source uses a checked local pose mapping. D3D9 uploads
+use its ordered immediate API without two full GPU idle waits per frame. Newly
+revealed surfaces still need the next Minecraft capture; this cannot remove every
+latency/disocclusion artifact. DepthGate remains uncalibrated/off in Source.
+
+Native impact acknowledgements now include contact coordinates. Both explosive
+crossbow arrows and crossbow rockets trigger a visible Minecraft explosion emitter
+and sound at that impact, in addition to existing native damage. Attached elytra
+boost rockets remain excluded from weapon blasts. Duplicate native impact reports
+cannot replay the projectile effect after it is discarded.
+
+Build checks: shared guest, GoldSrc DLLs, Source plugin and x86 renderer build;
+CTest 4/4 passes (wire, shared frames, movement collision/interpolation and camera
+ray reprojection); JavaScript wire validation and template isolation pass.
+Live checks: HL2 d2_coast_01 passed real walking (3.848 blocks), sprinting
+(5.013 blocks), crouch, a 1.251-block jump, elytra gliding and consumed firework
+boost (speed 0.338 to 1.283), and native movement fallback. HL1 c2a4d passed the
+same suite: walking 3.848, sprinting 5.006, jump 1.219 blocks, elytra/boost speed
+0.341 to 1.675, consumed rocket, and restored native MOVETYPE_WALK. An earlier
+HL1 flight fixture crossed a map trigger; the c2a4d rerun completed successfully.
+
+Chat creative/survival command submission and independent inventory access passed
+with both hosts. Typing the complete `/gamemode creative` command using ordinary
+native-window key events and Enter was also verified in HL2. Native T, character
+and Backspace forwarding worked. The automated paste/text helper did not inject
+its whole string into the native game; clipboard shortcuts are not implemented.
+The pause/expired-link path now stops intercepting keyboard input after its lease.
+
+HL1's real Black Mesa tram carried the standing player about 87.4 blocks in a
+12-second sample with unchanged height. The HL2 opt-in platform fixture translated,
+rose and rotated while the Minecraft-driven player remained attached; peak
+position error was 0.000126 blocks in the measured sample. Jump detached support,
+and removing the platform returned the player to native ground. This exercises
+supported native collider transport, not every campaign vehicle or lift.
+
+Real crossbow rockets produced native explosion acknowledgements in both games.
+Their actual guest colour captures grew from 176,819 (HL2) / 168,609 (HL1) visible
+world pixels to 921,600 at the burst, over 174 / 172 sampled frames. These counts
+exclude hands/HUD and verify visible world effects rather than only damage.
+The test restores food and plain flight-rocket inventory slots afterward.
+Source's D3D9 effect compiled successfully and the live composite was observed;
+GoldSrc's OpenGL compositor also ran throughout the tram and item checks.
+
+Campaign-wide moving objects and spectator noclip remain uncertified. Changing
+Minecraft gamemode does not enable native godmode or bypass native map scripts.
+Newly revealed surfaces still wait for a fresh guest capture. These scoped passes
+do not establish complete campaign compatibility.
+
+
 ## Cross-game boss teleporter
 
 F8 now contains both catalogs. Selecting a destination in the other game replaces

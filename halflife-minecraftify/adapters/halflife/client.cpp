@@ -1,4 +1,5 @@
 #include "../common/wire.hpp"
+#include "../common/text_input.hpp"
 #include "hud.h"
 #include "cl_util.h"
 #include "ref_params.h"
@@ -10,7 +11,8 @@
 namespace {
 mcvalve::Link camera;
 uint32_t frame=0,lastMask=0;
-bool inventory=false;
+bool inventory=false,chat=false;
+mcvalve::TextInput textInput;
 bool playerAlive=true;
 bool guestMovement=false;
 bool key(int k){return (GetAsyncKeyState(k)&0x8001)!=0;}
@@ -28,7 +30,7 @@ void MinecraftifyClientView(ref_params_s* p){
     if(p->maxclients!=1||!camera.open(25613,25621))return;
     mcvalve::Packet in;
     for(int n=0;n<16&&camera.receive(in);++n){
-        if(in.kind==mcvalve::Heartbeat){camera.scene=in.scene;camera.lease=GetTickCount64();inventory=in.i[0]!=0;guestMovement=in.i[1]==1;}
+        if(in.kind==mcvalve::Heartbeat){camera.scene=in.scene;camera.lease=GetTickCount64();inventory=in.i[0]!=0;chat=in.i[2]==1;guestMovement=in.i[1]==1;}
         else if(in.kind==mcvalve::Ui&&in.i[0]==1&&camera.active()&&std::abs(in.f[0])<=90&&std::abs(in.f[1])<=360)gEngfuncs.SetViewAngles(in.f);
     }
     DWORD pid=0;HWND window=GetForegroundWindow();GetWindowThreadProcessId(window,&pid);
@@ -43,6 +45,8 @@ void MinecraftifyClientView(ref_params_s* p){
     float hfov=gHUD.m_iFOV>0?float(gHUD.m_iFOV):90.f;
     pose.f[9]=mcvalve::verticalFov(hfov,p->viewport[3]>0?float(p->viewport[2])/p->viewport[3]:16.f/9.f);
     float measuredFov=MinecraftifyNativeVerticalFov();if(measuredFov>=10&&measuredFov<=170)pose.f[9]=measuredFov;
+    extern void MinecraftifyUpdateCompositePose(const float*,const float*,float,float);
+    MinecraftifyUpdateCompositePose(pose.f,pose.f+6,pose.f[9],p->viewport[3]>0?float(p->viewport[2])/p->viewport[3]:16.f/9);
     pose.i[0]=focused&&!p->paused&&!p->intermission&&p->health>0;
     pose.i[1]=!cam_thirdperson;pose.i[2]=p->viewport[2];pose.i[3]=p->viewport[3];pose.i[4]=p->onground!=-1;pose.i[5]=!guestMovement&&p->viewheight[2]<20;pose.i[6]=guestMovement;camera.send(pose);
     uint32_t mask=0;
@@ -57,11 +61,13 @@ void MinecraftifyClientView(ref_params_s* p){
     if(focused&&key(VK_NEXT))mask|=1u<<30;
     const int movementKeys[]={'W','S','A','D',VK_SPACE};
     for(int n=0;n<5;n++)if(focused&&key(movementKeys[n]))mask|=1u<<(22+n);
+    if(focused&&key('T'))mask|=1u<<31;
+    textInput.poll(camera,focused&&camera.active()&&chat);
     mcvalve::Packet input;input.kind=mcvalve::Input;input.i[0]=mask;input.i[1]=lastMask;
     RECT rect{};POINT cursor{};GetClientRect(window,&rect);GetCursorPos(&cursor);ScreenToClient(window,&cursor);
     input.f[0]=rect.right>0?float(cursor.x)/rect.right:0;input.f[1]=rect.bottom>0?float(cursor.y)/rect.bottom:0;
     camera.send(input);
-    if(camera.active()&&focused&&(mask&(1u<<3))&&!(lastMask&(1u<<3))){
+    if(camera.active()&&focused&&!chat&&(mask&(1u<<3))&&!(lastMask&(1u<<3))){
         gEngfuncs.pfnClientCmd(cam_thirdperson?"firstperson\n":"thirdperson\n");
     }
     if(camera.active()&&inventory){IN_DeactivateMouse();}

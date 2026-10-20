@@ -6,6 +6,10 @@
 #include <iostream>
 using namespace mcvalve;
 int main(){
+    MotionQueue queue;queue.push({1,2,-3});MoveVec total{};
+    for(int frame=0;frame<5;frame++){auto d=queue.take(.01f);for(int n=0;n<3;n++)total[n]+=d[n];assert(std::abs(d[0]-.2f)<.0001f);}
+    assert(std::abs(total[0]-1)<.0001f&&std::abs(total[1]-2)<.0001f&&std::abs(total[2]+3)<.0001f);
+    assert(queue.take(.05f)[0]==0);queue.push({5,0,0});queue.clear();assert(queue.take(.05f)[0]==0);
     auto trace=[](MoveVec a,MoveVec b){
         MoveHit h;if(a[2]<-.001f||a[0]>4.001f||a[2]>5.001f){h.solid=true;return h;}
         auto plane=[&](int axis,float boundary,MoveVec normal){float d=b[axis]-a[axis];if(std::abs(d)<.00001f)return;float t=(boundary-a[axis])/d;if(t>=0&&t<h.fraction){h.fraction=t;h.normal=normal;}};

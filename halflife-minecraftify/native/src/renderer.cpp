@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <reshade.hpp>
 #include <fusion/frame_reader.hpp>
+#include <fusion/pose_channel.hpp>
 #include <array>
 #include <memory>
 #include <mutex>
@@ -15,6 +16,7 @@ struct Layer { resource texture{};resource_view view{}; };
 struct Context {
     fusion::FrameReader reader;
     fusion::Frame frame;
+    fusion::PoseReader pose;
     std::array<Layer,3> layers;
     uint32_t width{},height{};
     ULONGLONG received{};
@@ -57,11 +59,12 @@ void draw(effect_runtime* rt,command_list*,resource_view,resource_view) {
                 resource images[]={c.layers[0].texture,c.layers[1].texture,c.layers[2].texture};
                 resource_usage before[]={resource_usage::shader_resource,resource_usage::shader_resource,resource_usage::shader_resource};
                 resource_usage after[]={resource_usage::copy_dest,resource_usage::copy_dest,resource_usage::copy_dest};
-                cmd->barrier(3,images,before,after);queue->wait_idle();
+                bool immediate=rt->get_device()->get_api()==device_api::d3d9;
+                cmd->barrier(3,images,before,after);if(!immediate)queue->wait_idle();
                 uint32_t bytes=c.width*c.height*4;
                 for(int i=0;i<3;++i)rt->get_device()->update_texture_region(subresource_data{c.frame.pixels.data()+size_t(bytes)*i,c.width*4,bytes},images[i],0);
                 cmd=queue->get_immediate_command_list();
-                if(cmd){cmd->barrier(3,images,after,before);queue->wait_idle();c.uploaded=true;c.received=GetTickCount64();}
+                if(cmd){cmd->barrier(3,images,after,before);if(!immediate)queue->wait_idle();c.uploaded=true;c.received=GetTickCount64();}
             }
         }
     }
@@ -69,6 +72,10 @@ void draw(effect_runtime* rt,command_list*,resource_view,resource_view) {
     if(auto v=rt->find_uniform_variable(effect,"McActive");v.handle)rt->set_uniform_value_bool(v,active);
     if(active) {
         if(auto v=rt->find_uniform_variable(effect,"McPlanes");v.handle)rt->set_uniform_value_float(v,c.frame.near_clip,c.frame.far_clip,float(c.frame.flags));
+        fusion::CameraPose old={c.frame.x,c.frame.y,c.frame.z,c.frame.yaw,c.frame.pitch,c.frame.roll,c.frame.fov,float(c.frame.width)/c.frame.height},now=old;c.pose.latest(now);
+        auto warp=fusion::reproject(old,now);
+        const char* names[]={"WarpX","WarpY","WarpZ","WarpOffset"};const fusion::Vec3 values[]={warp.x,warp.y,warp.z,warp.offset};
+        for(int n=0;n<4;n++)if(auto v=rt->find_uniform_variable(effect,names[n]);v.handle)rt->set_uniform_value_float(v,values[n][0],values[n][1],values[n][2]);
     }
 }
 void reloaded(effect_runtime* rt) {

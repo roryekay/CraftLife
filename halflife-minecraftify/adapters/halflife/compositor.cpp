@@ -2,6 +2,7 @@
 // MIT adapter code. Engine SDK remains under Valve's separate SDK license.
 #include "../common/wire.hpp"
 #include <fusion/frame_reader.hpp>
+#include <fusion/reprojection.hpp>
 #include <GL/gl.h>
 #include "hud.h"
 #include "cl_util.h"
@@ -30,6 +31,7 @@ ULONGLONG received=0;
 bool failed=false,projectionValid=false;
 float projectionA=0,projectionB=0;
 float verticalFov=0;
+fusion::CameraPose livePose;bool havePose=false;
 template<class T> bool load(T& fn,const char* name){fn=reinterpret_cast<T>(wglGetProcAddress(name));return fn!=nullptr&&reinterpret_cast<uintptr_t>(fn)>3&&reinterpret_cast<intptr_t>(fn)!=-1;}
 void message(const char* text){gEngfuncs.Con_Printf("Minecraftify OpenGL: %s\n",text);}
 bool initialize(){
@@ -40,12 +42,17 @@ bool initialize(){
 varying vec2 uv;
 uniform sampler2D World,McDepth,Overlay,NativeDepth;
 uniform vec4 McInfo,HostInfo;
+uniform vec4 WarpX,WarpY,WarpZ,WarpOffset;
+vec2 storageUv(vec2 logical){return vec2(logical.x,McInfo.w>.5?logical.y:1.-logical.y);}
+float linearDepth(vec2 logical){float d=texture2D(McDepth,storageUv(logical)).r;if(McInfo.z>.5)d=1.-d;return McInfo.x*McInfo.y/max(.00001,McInfo.y-d*(McInfo.y-McInfo.x));}
 void main(){
   vec2 at=vec2(uv.x,McInfo.w>.5?1.-uv.y:uv.y);
-  vec4 world=texture2D(World,at),over=texture2D(Overlay,at);
-  float d=texture2D(McDepth,at).r;
-  if(McInfo.z>.5)d=1.-d;
-  float mcZ=McInfo.x*McInfo.y/max(.00001,McInfo.y-d*(McInfo.y-McInfo.x));
+  vec3 q=vec3(uv.x*2.-1.,uv.y*2.-1.,1.);
+  vec3 ray=vec3(dot(WarpX.xyz,q),dot(WarpY.xyz,q),dot(WarpZ.xyz,q));
+  vec2 oldUv=.5+.5*vec2(ray.x,-ray.y)/max(.00001,ray.z);float mcZ=0.;
+  for(int n=0;n<4;n++){float z=linearDepth(oldUv);mcZ=(z-WarpOffset.z)/max(.00001,ray.z);oldUv=.5+.5*vec2(ray.x*mcZ+WarpOffset.x,-ray.y*mcZ-WarpOffset.y)/max(.00001,z);}
+  vec4 world=texture2D(World,storageUv(oldUv)),over=texture2D(Overlay,at);
+  if(ray.z<=0.||mcZ<=0.||any(lessThan(oldUv,vec2(0.)))||any(greaterThan(oldUv,vec2(1.))))world=vec4(0.);
   float hostD=texture2D(NativeDepth,uv).r;
   float hostZ=abs(HostInfo.y/(2.*hostD-1.+HostInfo.x))/32.;
   if(HostInfo.z>.5&&hostD<.999999&&mcZ>hostZ+.06)world=vec4(0.);
@@ -61,6 +68,9 @@ void main(){
     glGenTextures(4,textures);message("client compositor initialized; real shared-frame input enabled");return true;
 }
 void parameters(){glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,0x812F);glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,0x812F);}
+}
+void MinecraftifyUpdateCompositePose(const float* at,const float* angles,float fov,float aspect){
+    livePose={at[0],at[1],at[2],angles[0],angles[1],angles[2],fov,aspect};havePose=true;
 }
 void MinecraftifyRememberProjection(){
     float p[16];glGetFloatv(GL_PROJECTION_MATRIX,p);
@@ -99,6 +109,9 @@ void MinecraftifyComposite(){
     for(int i=0;i<4;i++){activeTexture(0x84C0+i);glBindTexture(GL_TEXTURE_2D,textures[i]);uniform1i(location(program,names[i]),i);}
     uniform4f(location(program,"McInfo"),frame.near_clip,frame.far_clip,(frame.flags&4)?1.f:0.f,(frame.flags&2)?0.f:1.f);
     uniform4f(location(program,"HostInfo"),projectionA,projectionB,projectionValid?1.f:0.f,0);
+    fusion::CameraPose captured={frame.x,frame.y,frame.z,frame.yaw,frame.pitch,frame.roll,frame.fov,float(frame.width)/frame.height};
+    auto warp=fusion::reproject(captured,havePose?livePose:captured);
+    uniform4f(location(program,"WarpX"),warp.x[0],warp.x[1],warp.x[2],0);uniform4f(location(program,"WarpY"),warp.y[0],warp.y[1],warp.y[2],0);uniform4f(location(program,"WarpZ"),warp.z[0],warp.z[1],warp.z[2],0);uniform4f(location(program,"WarpOffset"),warp.offset[0],warp.offset[1],warp.offset[2],0);
     glDisable(GL_DEPTH_TEST);glDepthMask(GL_FALSE);glDisable(GL_ALPHA_TEST);glDisable(GL_CULL_FACE);glDisable(GL_STENCIL_TEST);glDisable(GL_FOG);glDisable(GL_LIGHTING);
     glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);glEnable(GL_BLEND);glBlendFunc(GL_ONE,GL_ONE_MINUS_SRC_ALPHA);
     glBegin(GL_QUADS);glTexCoord2f(0,0);glVertex2f(-1,-1);glTexCoord2f(1,0);glVertex2f(1,-1);glTexCoord2f(1,1);glVertex2f(1,1);glTexCoord2f(0,1);glVertex2f(-1,1);glEnd();

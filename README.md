@@ -54,3 +54,11 @@ Gradle wrapper bootstrap files needed to build the source.
 Preserve the existing notices and per-component terms in both projects'
 `LICENSE` and `licenses/` directories. The inherited foundation's MIT notice
 does not replace Valve SDK or other third-party license terms.
+
+## October 20 repair
+
+Inventory remains **I**. **T** opens Minecraft chat for `/gamemode creative` and
+`/gamemode survival`. This update adds native-frame movement smoothing,
+moving-floor handling, late camera reprojection and explosive-impact particles
+and sound. See [validation and remaining work](halflife-minecraftify/STATUS.md).
+This remains an experimental integration; native campaign rules still apply.

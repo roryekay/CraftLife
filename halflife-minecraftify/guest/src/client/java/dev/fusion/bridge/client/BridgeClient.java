@@ -105,6 +105,8 @@ public final class BridgeClient implements ClientModInitializer {
             event.addProperty("item",BuiltInRegistries.ITEM.getKey(mc.player.getMainHandItem().getItem()).toString());
             event.addProperty("using",mc.player.isUsingItem());event.addProperty("blocking",mc.player.isBlocking());
             event.addProperty("screen",mc.gui.screen()!=null);
+            event.addProperty("chat",mc.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen);
+            event.addProperty("gamemode",mc.gameMode.getPlayerMode().getName());
             event.addProperty("uiWidth",mc.getWindow().getGuiScaledWidth());event.addProperty("uiHeight",mc.getWindow().getGuiScaledHeight());
             event.addProperty("hp",mc.player.getHealth());
             event.addProperty("movement",p!=null&&p.guestMovement());event.addProperty("gliding",mc.player.isFallFlying());event.addProperty("sprinting",mc.player.isSprinting());

@@ -76,3 +76,20 @@ relative-mouse functions and the pinned Source SDK's VGUI_Surface030 interface.
 No replacement SDL binary, event library, window-message hook or new dependency
 is installed. The final teleporter also supplies native keyboard selection and
 paging, verified in both engines; short polled HL2 mouse clicks remain a limitation.
+
+
+## Movement, camera and chat repair (October 20, 2026)
+
+GitHub searches for Source/GoldSrc moving-platform movement and asynchronous
+reprojection found no qualifying drop-in bridge for these OpenGL/D3D9 runtimes.
+Valve's official Source SDK reported 10,073 stars and HL1 SDK 4,390 on this check;
+the existing pinned SDK revisions remain unchanged. Public collision/pusher,
+entity handle, transform and plugin interfaces supply the native building blocks.
+`xPoiler/Reshade-Asynchronous-Reprojection` reported 34 stars, GPL-3.0 and a
+DX11/DX12/Vulkan target; it was not adopted. The vrtoolkit API metadata request
+failed and no review/adoption claim is made for it. No external code or new
+runtime dependency was added. Camera math, interpolation and narrow integration
+glue are custom. Chat subclasses only the owned game's window procedure while
+loaded; it forwards input only during focused Minecraft chat and restores the
+procedure on unload. It installs no global hook or persistent input component.
+These are scoped source/API reviews, not an audit of the entire SDK or game.

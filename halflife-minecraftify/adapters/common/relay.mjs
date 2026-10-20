@@ -28,7 +28,7 @@ export function run(game,options={}){
   const socket=dgram.createSocket('udp4');
   const hostPid=Number(process.argv.find(s=>s.startsWith('--host-pid='))?.split('=')[1]??0);
   if(!Number.isInteger(hostPid)||hostPid<0||hostPid>2147483647)throw Error('Invalid host process ID');
-  let ws,attached=false,scene=0,seq=0,mask=0,guestState=0,cameraTime=0,screen=false,item='',map='',lastVitals=0;
+  let ws,attached=false,scene=0,seq=0,mask=0,guestState=0,cameraTime=0,screen=false,chat=false,item='',map='',lastVitals=0;
   const pending=new Map();
   const knownBlocks=new Map(),installedBlocks=new Set(),pendingBlocks=new Set(),blockAttempts=new Map();
   let feet;
@@ -43,7 +43,7 @@ export function run(game,options={}){
   let switching=false;
   let inputTraceTime=0;
   let minecraftMovement=options.movement??!options.diagnostics,lastMovement;
-  function heartbeat(){return encode(9,0,scene,[],[screen?1:0,minecraftMovement?1:0]);}
+  function heartbeat(){return encode(9,0,scene,[],[screen?1:0,minecraftMovement?1:0,chat?1:0]);}
   function send(m){if(attached&&ws?.readyState===1)ws.send(JSON.stringify(m));}
   function command(kind,f=[],i=[],tag){
     if(!scene||Date.now()-guestState>1000)return;
@@ -63,6 +63,8 @@ export function run(game,options={}){
     } else {
       for(const [bit,k] of [[0,'attack'],[1,'use'],[5,'drop'],[6,'swap'],[7,'pick']])if(changed&(1<<bit))send({t:'key',k,down:!!(current&(1<<bit))});
     }
+    if(!screen&&(pressed&0x80000000))send({t:'chat'});
+    if(chat){mask=current;if(pressed&16)send({t:'key',k:'escape',down:true});return;}
     if(pressed&4)send({t:'inventory'});
     if(pressed&(1<<20))send({t:'travel_menu'});
     if(pressed&(1<<21)){
@@ -93,6 +95,7 @@ export function run(game,options={}){
       }else if(p.kind===31&&p.scene===scene){lastMovement=p;
       }else if(p.kind===2){if(lastNativeState&&p.f[0]!==lastNativeState.f[0])vitalJumps.push(p.f[0]-lastNativeState.f[0]);if(vitalJumps.length>1024)vitalJumps.shift();lastNativeState=p;if(Date.now()-lastVitals>100){lastVitals=Date.now();send({t:'host_health',hp:p.f[0],max:p.f[1]});}}
       else if(p.kind===3)inputs(p);
+      else if(p.kind===32&&chat&&p.scene===scene)send({t:'text',code:p.i[0],modifiers:p.i[1]&0xc3,character:p.i[2]===1});
       else if(p.kind===5)send({t:'terrain',pos:p.i.slice(0,3),solid:!!p.i[3]});
       else if(p.kind===17&&hl1&&from.port===server&&p.scene===scene)socket.send(b,25613,'127.0.0.1');
       else if(p.kind===100){
@@ -105,7 +108,7 @@ export function run(game,options={}){
           pendingBlocks.delete(event.tag.key);
           if(p.i[0]>=0){if(knownBlocks.has(event.tag.key))installedBlocks.add(event.tag.key);else command(14,[],[...event.tag.pos,0]);}
         }
-        if(event?.tag?.t==='projectile'&&p.i[0]===1)send({t:'native_impact',id:event.tag.id});
+        if(event?.tag?.t==='projectile'&&p.i[0]===1)send({t:'native_impact',id:event.tag.id,pos:p.f.slice(0,3),visual:event.tag.visual});
         if(p.i[0]<0)console.error(`Native operation ${event?.tag?.t??p.sequence} refused (${p.i[0]})`);
       }
     }catch(error){console.error(error.message);}
@@ -121,7 +124,7 @@ export function run(game,options={}){
       else if(m.t==='attached'){
         attached=!!m.ok;if(!attached){console.error('Another adapter owns Minecraft');ws.close();return;}
         console.log(`Minecraft attached for ${game}`);if(scene)send({t:'scene',name:`${game}:${map}`,epoch:scene});
-      }else if(m.t==='guest_state'){guestState=Date.now();screen=!!m.screen;item=m.item;lastState=m;}
+      }else if(m.t==='guest_state'){guestState=Date.now();screen=!!m.screen;chat=!!m.chat;item=m.item;lastState=m;}
       else if(m.t==='movement'&&minecraftMovement&&lastPose?.i[6]){
         if(!Array.isArray(m.delta)||m.delta.length!==3||!m.delta.every(v=>Number.isFinite(v)&&Math.abs(v)<=16)||!Array.isArray(m.velocity)||m.velocity.length!==3||!m.velocity.every(v=>Number.isFinite(v)&&Math.abs(v)<=16)||!Number.isInteger(m.flags)||m.flags<0||m.flags>3)throw Error('Invalid movement');
         command(30,[...m.delta,...m.velocity],[m.flags]);
@@ -130,7 +133,7 @@ export function run(game,options={}){
       else if(m.t==='projectile'){
         eventCounts.projectile++;
         const kind=m.kind==='pearl'?3:m.explosive?5:m.kind==='firework'?2:m.damaging?1:4;
-        command(11,[...m.from,...m.to,m.power??1],[m.id,kind],{t:'projectile',id:m.id});
+        command(11,[...m.from,...m.to,m.power??1],[m.id,kind],{t:'projectile',id:m.id,visual:kind===2||kind===5});
       }else if(m.t==='explosion'){eventCounts.explosion++;command(12,[...m.pos,0,0,0,Math.min(2,m.radius/4)],[],{t:'explosion'});}
       else if(m.t==='block_changed'){
         recentBlocks.push(m);if(recentBlocks.length>128)recentBlocks.shift();
@@ -161,7 +164,7 @@ export function run(game,options={}){
     }catch(error){console.error(`Guest message refused: ${error.message}`);}};
     const retry=()=>{
       if(connection!==ws)return;
-      attached=false;guestState=0;screen=false;
+      attached=false;guestState=0;screen=false;chat=false;
       if(!stopped&&!reconnectTimer)reconnectTimer=setTimeout(()=>{reconnectTimer=null;connect();},1000);
     };
     ws.onerror=e=>{console.error(`Minecraft link unavailable: ${e.message??'connection failed'}`);retry();};
@@ -195,9 +198,9 @@ export function run(game,options={}){
     api.blocks=()=>[...recentBlocks];
     api.movementState=()=>lastMovement;
     api.setMovement=enabled=>{if(typeof enabled!=='boolean')throw Error('Movement mode must be boolean');minecraftMovement=enabled;lastMovement=null;};
-    api.guest=m=>{if(!['key','slot','cursor','inventory','travel_menu'].includes(m.t))throw Error('Unsupported diagnostic guest input');diagnosticInputUntil=Date.now()+500;send(m);};
+    api.guest=m=>{if(!['key','slot','cursor','inventory','travel_menu','chat','text'].includes(m.t))throw Error('Unsupported diagnostic guest input');diagnosticInputUntil=Date.now()+500;send(m);};
     api.native=(kind,f=[],i=[])=>new Promise((resolve,reject)=>{
-      if(kind<20||kind>28){reject(Error('Only explicitly enabled native test fixtures are permitted'));return;}
+      if(kind<20||kind>29){reject(Error('Only explicitly enabled native test fixtures are permitted'));return;}
       const id=command(kind,f,i,{t:'diagnostic',resolve,reject});if(!id)reject(Error('Bridge is not ready'));
     });
   }
