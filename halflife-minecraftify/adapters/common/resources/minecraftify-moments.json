@@ -1,0 +1,516 @@
+{
+  "halflife": [
+    {
+      "label": "Black Mesa tram",
+      "map": "c0a0",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Anomalous Materials",
+      "map": "c1a0",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Resonance Cascade",
+      "map": "c1a0c",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Unforeseen Consequences",
+      "map": "c1a1",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Office Complex",
+      "map": "c1a2",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "We've Got Hostiles",
+      "map": "c1a3",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Blast Pit",
+      "map": "c1a4",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Power Up",
+      "map": "c2a1",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "On a Rail",
+      "map": "c2a2",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Apprehension",
+      "map": "c2a3",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Residue Processing",
+      "map": "c2a4",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Questionable Ethics",
+      "map": "c2a4d",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Surface Tension",
+      "map": "c2a5",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Forget About Freeman",
+      "map": "c3a1",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Lambda Core",
+      "map": "c3a2",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Xen",
+      "map": "c4a1",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Gonarch's Lair",
+      "map": "c4a2",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Interloper",
+      "map": "c4a1a",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Nihilanth",
+      "map": "c4a3",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Tentacle location \u2014 c1a4i",
+      "map": "c1a4i",
+      "kind": "boss",
+      "encounter": 1
+    },
+    {
+      "label": "Gargantua location \u2014 c2a1",
+      "map": "c2a1",
+      "kind": "boss",
+      "encounter": 2
+    },
+    {
+      "label": "Apache location \u2014 c2a5",
+      "map": "c2a5",
+      "kind": "boss",
+      "encounter": 5
+    },
+    {
+      "label": "Apache location \u2014 c2a5a",
+      "map": "c2a5a",
+      "kind": "boss",
+      "encounter": 5
+    },
+    {
+      "label": "Gargantua location \u2014 c2a5g",
+      "map": "c2a5g",
+      "kind": "boss",
+      "encounter": 2
+    },
+    {
+      "label": "Apache location \u2014 c2a5w",
+      "map": "c2a5w",
+      "kind": "boss",
+      "encounter": 5
+    },
+    {
+      "label": "Tentacle location \u2014 c2a5x",
+      "map": "c2a5x",
+      "kind": "boss",
+      "encounter": 1
+    },
+    {
+      "label": "Apache location \u2014 c2a5x",
+      "map": "c2a5x",
+      "kind": "boss",
+      "encounter": 5
+    },
+    {
+      "label": "Tentacle location \u2014 c4a1b",
+      "map": "c4a1b",
+      "kind": "boss",
+      "encounter": 1
+    },
+    {
+      "label": "Gargantua location \u2014 c4a1b",
+      "map": "c4a1b",
+      "kind": "boss",
+      "encounter": 2
+    },
+    {
+      "label": "Gonarch location \u2014 c4a2",
+      "map": "c4a2",
+      "kind": "boss",
+      "encounter": 3
+    },
+    {
+      "label": "Gargantua location \u2014 c4a3",
+      "map": "c4a3",
+      "kind": "boss",
+      "encounter": 2
+    },
+    {
+      "label": "Nihilanth location \u2014 c4a3",
+      "map": "c4a3",
+      "kind": "boss",
+      "encounter": 4
+    },
+    {
+      "label": "Gargantua location \u2014 hldemo1",
+      "map": "hldemo1",
+      "kind": "boss",
+      "encounter": 2
+    }
+  ],
+  "halflife2": [
+    {
+      "label": "Point Insertion",
+      "map": "d1_trainstation_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "City 17 checkpoint",
+      "map": "d1_trainstation_02",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "A Red Letter Day",
+      "map": "d1_trainstation_05",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Route Kanal",
+      "map": "d1_canals_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Water Hazard",
+      "map": "d1_canals_06",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Black Mesa East",
+      "map": "d1_eli_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "We Don't Go To Ravenholm",
+      "map": "d1_town_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Highway 17",
+      "map": "d2_coast_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Sandtraps",
+      "map": "d2_coast_07",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Nova Prospekt",
+      "map": "d2_prison_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Entanglement",
+      "map": "d2_prison_06",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Anticitizen One",
+      "map": "d3_c17_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Follow Freeman",
+      "map": "d3_c17_09",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Our Benefactors",
+      "map": "d3_citadel_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Dark Energy",
+      "map": "d3_breen_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_01",
+      "map": "d1_canals_01",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_01a",
+      "map": "d1_canals_01a",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_02",
+      "map": "d1_canals_02",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_06",
+      "map": "d1_canals_06",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_08",
+      "map": "d1_canals_08",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_09",
+      "map": "d1_canals_09",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_10",
+      "map": "d1_canals_10",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_11",
+      "map": "d1_canals_11",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_canals_13",
+      "map": "d1_canals_13",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Hunter-Chopper location \u2014 d1_eli_02",
+      "map": "d1_eli_02",
+      "kind": "boss",
+      "encounter": 6
+    },
+    {
+      "label": "Strider location \u2014 d1_trainstation_02",
+      "map": "d1_trainstation_02",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Gunship location \u2014 d1_trainstation_04",
+      "map": "d1_trainstation_04",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d2_coast_03",
+      "map": "d2_coast_03",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d2_coast_04",
+      "map": "d2_coast_04",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d2_coast_07",
+      "map": "d2_coast_07",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d2_coast_08",
+      "map": "d2_coast_08",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d2_coast_10",
+      "map": "d2_coast_10",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Antlion Guard location \u2014 d2_coast_11",
+      "map": "d2_coast_11",
+      "kind": "boss",
+      "encounter": 9
+    },
+    {
+      "label": "Gunship location \u2014 d2_prison_01",
+      "map": "d2_prison_01",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Antlion Guard location \u2014 d2_prison_02",
+      "map": "d2_prison_02",
+      "kind": "boss",
+      "encounter": 9
+    },
+    {
+      "label": "Antlion Guard location \u2014 d2_prison_03",
+      "map": "d2_prison_03",
+      "kind": "boss",
+      "encounter": 9
+    },
+    {
+      "label": "Antlion Guard location \u2014 d2_prison_05",
+      "map": "d2_prison_05",
+      "kind": "boss",
+      "encounter": 9
+    },
+    {
+      "label": "Gunship location \u2014 d3_breen_01",
+      "map": "d3_breen_01",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_04",
+      "map": "d3_c17_04",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_05",
+      "map": "d3_c17_05",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_06a",
+      "map": "d3_c17_06a",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_06b",
+      "map": "d3_c17_06b",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Gunship location \u2014 d3_c17_10a",
+      "map": "d3_c17_10a",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Gunship location \u2014 d3_c17_11",
+      "map": "d3_c17_11",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_11",
+      "map": "d3_c17_11",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_12",
+      "map": "d3_c17_12",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_12b",
+      "map": "d3_c17_12b",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Gunship location \u2014 d3_c17_13",
+      "map": "d3_c17_13",
+      "kind": "boss",
+      "encounter": 7
+    },
+    {
+      "label": "Strider location \u2014 d3_c17_13",
+      "map": "d3_c17_13",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_citadel_02",
+      "map": "d3_citadel_02",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Strider location \u2014 d3_citadel_04",
+      "map": "d3_citadel_04",
+      "kind": "boss",
+      "encounter": 8
+    },
+    {
+      "label": "Gunship location \u2014 d3_citadel_05",
+      "map": "d3_citadel_05",
+      "kind": "boss",
+      "encounter": 7
+    }
+  ]
+}

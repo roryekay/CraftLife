@@ -1,0 +1,56 @@
+# CraftLife
+
+Experimental Minecraftify Anything integrations for **Half-Life 1 and Half-Life 2**.
+Real Minecraft runs alongside the owned native games, supplying its inventory,
+items, blocks and movement. HalfCraft is not used.
+
+## Play on the prepared computer
+
+Start either Minecraftify Half-Life profile in the official Minecraft Launcher,
+wait for its isolated world, then use **Play Half-Life 1.cmd** or
+**Play Half-Life 2.cmd** from the original prepared workspace.
+
+**F8** opens the combined boss/key-moment teleporter. While it is open:
+
+- **F9 / F10** chooses Half-Life 1 / Half-Life 2.
+- **Page Up / Page Down** browses pages.
+- **1–8** selects the numbered destination.
+
+Cross-game travel keeps the same Minecraft session and inventory open. It loads
+a fresh native map rather than resuming a native campaign save. Bosses remain
+dangerous and the menu does not pause native AI. Short HL2 mouse clicks can miss;
+the keyboard route is the tested option.
+
+Minecraft movement is enabled by default, including elytra and firework boosts.
+**F6** switches to native movement for ladders, swimming, vehicles and scripts.
+Use **I** for inventory and **F5** for third person.
+
+See the [play guide](HALFLIFE_MINECRAFTIFY_HANDOFF.md) and
+[tested capabilities and remaining limits](halflife-minecraftify/STATUS.md).
+Full campaign completion is not certified.
+
+## Source layout
+
+- `halflife-minecraftify/`: shared Fabric guest, relay, launch/install tools,
+  GoldSrc client/server adapter, renderer, tests and documentation.
+- `halflife2-minecraftify/adapters/halflife2/`: Source plugin and collider sources.
+  This adapter uses the shared guest and common protocol from its sibling.
+- `SOURCE_MANIFEST.json`: SHA-256 hashes of the exported source snapshot.
+
+This repository is a **source backup**, not a bundled game or ready-to-run
+installation on another computer. Existing scripts expect Windows, prepared
+local SDK/toolchain directories, and owned Steam/Minecraft installations.
+Build caches, SDK checkouts, downloaded runtimes and game assets are deliberately
+excluded. Dependency versions and review limits are recorded in the
+[Valve reuse review](halflife-minecraftify/VALVE_REUSE_REVIEW.md) and
+[foundation review](halflife-minecraftify/UPSTREAM_REVIEW.md).
+
+No accounts, authentication files, credentials, saves, logs, purchased game
+assets or native game executables are included. The only JARs tracked are the
+Gradle wrapper bootstrap files needed to build the source.
+
+## Licenses
+
+Preserve the existing notices and per-component terms in both projects'
+`LICENSE` and `licenses/` directories. The inherited foundation's MIT notice
+does not replace Valve SDK or other third-party license terms.

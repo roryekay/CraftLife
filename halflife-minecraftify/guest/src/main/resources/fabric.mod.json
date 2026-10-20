@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "minecraftify",
+  "version": "${version}",
+  "name": "MinecraftifyAnything Guest",
+  "description": "Game-neutral camera, input and frame-export foundation. No host-game hooks.",
+  "authors": [
+    "Rehan and universal-modder contributors",
+    "MinecraftifyAnything contributors"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "dev.fusion.bridge.Bridge",
+      "dev.fusion.valve.ValveSession"
+    ],
+    "client": [
+      "dev.fusion.bridge.client.BridgeClient",
+      "dev.fusion.valve.ValveUi"
+    ]
+  },
+  "mixins": [
+    "minecraftify.mixins.json",
+    {
+      "config": "minecraftify.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}

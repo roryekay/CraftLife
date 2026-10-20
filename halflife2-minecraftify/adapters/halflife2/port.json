@@ -1,0 +1,62 @@
+{
+  "name": "halflife2",
+  "status": "experimental-playable-local-build",
+  "engine": "Source",
+  "architecture": "x86",
+  "supportedSteamBuild": "19307283",
+  "supportedExecutableSha256": "0dbc5fb2f27e9a5fef519d3e05e6c8f4444986010ca1f2e9cbfb4cc1ca9f97fe",
+  "graphicsApi": "Direct3D 9 / ReShade 6.8.0 addon32",
+  "modLoader": "IServerPluginCallbacks003 and VSERVERTOOLS002",
+  "unitsPerMinecraftBlock": 32,
+  "cameraAxes": {
+    "minecraftX": "-native Y / 32",
+    "minecraftY": "native Z / 32 + 64",
+    "minecraftZ": "-native X / 32",
+    "yaw": "180 - native yaw",
+    "pitch": "native pitch"
+  },
+  "minecraftWorld": {
+    "minY": -1024,
+    "height": 2048,
+    "isolated": true
+  },
+  "capabilitiesVerified": {
+    "cameraAlignment": false,
+    "blockPlacementStandingJumping": true,
+    "nativeCombat": true,
+    "projectiles": true,
+    "tnt": true,
+    "potions": true,
+    "enderPearls": true,
+    "inventoryItemTransfer": true,
+    "thirdPerson": true,
+    "bossTravel": true,
+    "minecraftMovement": true,
+    "elytraFlight": true,
+    "fireworkBoost": true,
+    "movementFallback": true,
+    "crossGameTravel": true,
+    "teleporterKeyboard": true
+  },
+  "observed": [
+    "real Minecraft compositing and avatar",
+    "actual item consumption and native enemy damage",
+    "native cube support, jump, mining and removal",
+    "real inventory transfers before and after native death/respawn",
+    "fresh-map travel and explosive crossbow boss damage",
+    "same Minecraft session switches between HL1 and HL2 boss catalogs through native keyboard controls"
+  ],
+  "sharedGuest": "halflife-minecraftify/guest",
+  "report": "halflife-minecraftify/STATUS.md",
+  "limitations": [
+    "Native BSP carving unsupported",
+    "Full-cube native collision only",
+    "Partial potion/projectile parity; see status report",
+    "Some boss locations require story triggers",
+    "Full campaign and exhaustive camera/depth calibration unverified",
+    "Native depth occlusion disabled pending calibration",
+    "Short polled mouse clicks may miss; F8 keyboard controls are the verified travel route"
+  ],
+  "movement": "Vanilla Minecraft travel with native swept collision; F6 native fallback",
+  "movementLimits": "HL1 keeps native hull sizes; swimming, ladders, vehicles and scripted locomotion use native fallback; exact vanilla fall/wall damage parity is not certified."
+}

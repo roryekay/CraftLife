@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {encode,decode,MAGIC} from '../adapters/common/relay.mjs';
+const b=encode(11,0xf1234567,123,[1.25,-2,3,4,5,6,.5],[77,3]);
+assert.equal(b.length,128);assert.equal(b.readUInt32LE(0),MAGIC);assert.equal(b.readFloatLE(16),1.25);assert.equal(b.readInt32LE(96),77);
+const p=decode(b);assert.equal(p.sequence,0xf1234567);assert.equal(p.scene,123);assert.deepEqual(p.f.slice(0,3),[1.25,-2,3]);
+assert.throws(()=>decode(b.subarray(0,127)));assert.throws(()=>encode(1,0,0,[Infinity]));
+const corrupt=Buffer.from(b);corrupt.writeFloatLE(NaN,16);assert.throws(()=>decode(corrupt));
+const badVersion=Buffer.from(b);badVersion.writeUInt16LE(7,4);assert.throws(()=>decode(badVersion));
+const scene=encode(4,0,1);scene.write('c1a0',16,'ascii');assert.equal(decode(scene).map,'c1a0');
+const injection=encode(4,0,1);injection.write('c1a0;quit',16,'ascii');assert.throws(()=>decode(injection));
+console.log('PASS: binary layout, float bounds, malformed packets, scene-name validation');

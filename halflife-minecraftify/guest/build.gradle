@@ -1,0 +1,49 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+repositories {
+	mavenCentral()
+}
+sourceSets.main.java.srcDir '../adapters/common/guest/main'
+sourceSets.main.resources.srcDir '../adapters/common/resources'
+
+loom {
+	splitEnvironmentSourceSets()
+	mods {
+		"minecraftify" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+	runs {
+		// dev client: a fixed window size so the camera/projection maths is easy to check
+		client {
+			programArgs "--width", "1920", "--height", "1080"
+			vmArgs "--enable-native-access=ALL-UNNAMED", "-Dminecraftify.autoWorld=true", "-Dminecraftify.diagnostics=true", "-Dminecraftify.game=${providers.gradleProperty('valveGame').getOrElse('halflife')}", "-Dminecraftify.world=${providers.gradleProperty('valveWorld').getOrElse('minecraftify-valve-'+providers.gradleProperty('valveGame').getOrElse('halflife'))}"
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// Local host-adapter transport; no game SDK is linked here.
+	implementation "org.java-websocket:Java-WebSocket:1.6.0"
+	include "org.java-websocket:Java-WebSocket:1.6.0"
+}
+sourceSets.client.java.srcDir '../adapters/common/guest/client'
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+	filesMatching("fabric.mod.json") { expand "version": version }
+}
+
+tasks.withType(JavaCompile).configureEach { it.options.release = 25 }
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

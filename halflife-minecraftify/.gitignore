@@ -1,0 +1,13 @@
+local/
+guest/.gradle/
+guest/build/
+guest/run/
+__pycache__/
+*.log
+*.pdb
+*.obj
+*.ilk
+*.exe
+*.dll
+*.addon64
+*.zip

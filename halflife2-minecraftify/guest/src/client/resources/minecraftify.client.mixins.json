@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "dev.fusion.bridge.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CameraMixin",
+    "GameRendererMixin",
+    "GlCommandEncoderMixin",
+    "FogRendererMixin",
+    "FramerateLimitTrackerMixin",
+    "KeyMappingAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
