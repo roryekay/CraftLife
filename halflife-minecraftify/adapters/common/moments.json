@@ -197,6 +197,30 @@
       "map": "hldemo1",
       "kind": "boss",
       "encounter": 2
+    },
+    {
+      "label": "G-Man: full ending and choice",
+      "map": "c5a1",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "G-Man: job offer",
+      "map": "c5a1",
+      "kind": "moment",
+      "encounter": 10
+    },
+    {
+      "label": "G-Man: accept the offer",
+      "map": "c5a1",
+      "kind": "moment",
+      "encounter": 11
+    },
+    {
+      "label": "G-Man: refuse the offer",
+      "map": "c5a1",
+      "kind": "moment",
+      "encounter": 12
     }
   ],
   "halflife2": [
@@ -511,6 +535,18 @@
       "map": "d3_citadel_05",
       "kind": "boss",
       "encounter": 7
+    },
+    {
+      "label": "G-Man: Rise and shine",
+      "map": "d1_trainstation_01",
+      "kind": "moment",
+      "encounter": 0
+    },
+    {
+      "label": "G-Man: Time, Steve? / ending",
+      "map": "mc_gman_ending",
+      "kind": "moment",
+      "encounter": 0
     }
   ]
 }

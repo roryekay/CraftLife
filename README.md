@@ -16,6 +16,11 @@ wait for its isolated world, then use **Play Half-Life 1.cmd** or
 - **Page Up / Page Down** browses pages.
 - **1–8** selects the numbered destination.
 
+The **G-Man voice scenes** button jumps to the dedicated entries on the last page.
+The local install uses the approved Steve voices; recordings and the owned
+ending-map variant remain local. Their preparation and installation source is
+backed up here.
+
 Cross-game travel keeps the same Minecraft session and inventory open. It loads
 a fresh native map rather than resuming a native campaign save. Bosses remain
 dangerous and the menu does not pause native AI. Short HL2 mouse clicks can miss;

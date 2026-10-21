@@ -158,6 +158,22 @@ void process(CBasePlayer* player,const mcvalve::Packet& p){
         if(p.i[0]<0||p.i[0]>=sizeof(mcvalve::halflifeMaps)/sizeof(*mcvalve::halflifeMaps)){ack(p,-1);break;}
         {char command[128];std::snprintf(command,sizeof(command),"map %s\nexec minecraftify.cfg\n",mcvalve::halflifeMaps[p.i[0]]);ack(p,1);SERVER_COMMAND(command);}break;
     case mcvalve::Travel: {
+        if(p.i[0]>=10&&p.i[0]<=12){
+            if(strcmp(STRING(gpGlobals->mapname),"c5a1")){ack(p,-1);break;}
+            const char* actor=p.i[0]==10?"bridge_gman":p.i[0]==11?"end_gman":"loser_gman";
+            const char* trigger=p.i[0]==10?"start_bridge_mm":p.i[0]==11?"v_black_room_sounds_mm1":"loser_mm";
+            auto* speaker=UTIL_FindEntityByTargetname(nullptr,actor);
+            auto* scene=UTIL_FindEntityByTargetname(nullptr,trigger);
+            if(!speaker||!scene){ack(p,-3);break;}
+            // Stop the opening schedule before entering a different ending branch.
+            if(auto* opening=UTIL_FindEntityByTargetname(nullptr,"start_gman_mm"))opening->pev->nextthink=0;
+            if(auto* opening=UTIL_FindEntityByTargetname(nullptr,"start_gman"))EMIT_SOUND_DYN(opening->edict(),CHAN_VOICE,"!GM_SUIT",0,ATTN_NONE,SND_STOP,PITCH_NORM);
+            Vector where=p.i[0]==10?Vector(-1744,-2632,-2747):p.i[0]==11?Vector(-917,330,-2944):Vector(142,-2023,1349);
+            UTIL_SetOrigin(player->pev,where);player->pev->velocity=g_vecZero;
+            Vector delta=speaker->Center()-player->EyePosition();
+            orient(player,Vector(-atan2f(delta.z,sqrtf(delta.x*delta.x+delta.y*delta.y))*57.2957795f,atan2f(delta.y,delta.x)*57.2957795f,0));
+            FireTargets(trigger,player,player,USE_TOGGLE,0);ack(p,1);break;
+        }
         const char* names[]={"","monster_tentacle","monster_gargantua","monster_bigmomma","monster_nihilanth","monster_apache"};
         if(p.i[0]<1||p.i[0]>5){ack(p,-1);break;}
         auto* boss=UTIL_FindEntityByClassname(nullptr,names[p.i[0]]);bool moved=false,hasFallback=false;Vector chosen,fallback;

@@ -24,7 +24,7 @@ export function run(game,options={}){
   const hl1=game==='halflife',port=hl1?25621:25622,server=hl1?25611:25612;
   let encounter=Number(process.argv.find(s=>s.startsWith('--encounter='))?.split('=')[1]??0),travelPending=encounter>0;
   let travelTargetMap='',travelAttempts=0,lastTravel=0,travelFromScene=0;
-  if(!Number.isInteger(encounter)||encounter<0||encounter>9)throw Error('Invalid encounter');
+  if(!Number.isInteger(encounter)||encounter<0||encounter>12)throw Error('Invalid encounter');
   const socket=dgram.createSocket('udp4');
   const hostPid=Number(process.argv.find(s=>s.startsWith('--host-pid='))?.split('=')[1]??0);
   if(!Number.isInteger(hostPid)||hostPid<0||hostPid>2147483647)throw Error('Invalid host process ID');

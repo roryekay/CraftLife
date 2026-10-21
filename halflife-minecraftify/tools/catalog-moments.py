@@ -22,6 +22,15 @@ for game,folder in [('halflife','Half-Life/valve'),('halflife2','Half-Life 2/hl2
         types=set(re.findall(r'"classname"\s*"([^"]+)"',entities))
         for classname,(label,number) in BOSSES[game].items():
             if classname in types:entries.append({'label':f'{label} location — {path.stem}','map':path.stem,'kind':'boss','encounter':number})
+    # Append to preserve existing destination indices used by launchers/tests.
+    voices = [('G-Man: full ending and choice', 'c5a1', 0),
+              ('G-Man: job offer', 'c5a1', 10),
+              ('G-Man: accept the offer', 'c5a1', 11),
+              ('G-Man: refuse the offer', 'c5a1', 12)] if game=='halflife' else [
+              ('G-Man: Rise and shine', 'd1_trainstation_01', 0),
+              ('G-Man: Time, Steve? / ending', 'mc_gman_ending', 0)]
+    entries.extend({'label':label,'map':name,'kind':'moment','encounter':number}
+                   for label,name,number in voices if (maps/(name+'.bsp')).exists() or (name=='mc_gman_ending' and (maps/'d3_breen_01.bsp').exists()))
     catalog[game]=entries
 (ROOT/'adapters/common/moments.json').write_text(json.dumps(catalog,indent=2)+'\n')
 resources=ROOT/'adapters/common/resources';resources.mkdir(exist_ok=True)

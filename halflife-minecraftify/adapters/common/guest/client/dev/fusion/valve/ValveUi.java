@@ -42,7 +42,7 @@ public final class ValveUi implements ClientModInitializer {
             var second=addRenderableWidget(Button.builder(Component.literal("Half-Life 2 [F10]"),b->group(1)).bounds(width/2+5,20,150,20).build());second.active=!game.equals("halflife2");
             rows=Math.clamp((height-132)/22,1,8);page=Math.min(page,(entries.size()-1)/rows);
             addRenderableWidget(Button.builder(Component.literal("Bosses / moments — page "+(page+1)+" — choose 1-"+rows),b->{}).bounds(width/2-155,43,310,20).build());
-            addRenderableWidget(Button.builder(Component.literal("Fresh map; other game switches automatically"),b->{}).bounds(width/2-170,66,340,20).build());
+            addRenderableWidget(Button.builder(Component.literal("G-Man voice scenes — jump to last page"),b->{page=(entries.size()-1)/rows;rebuildWidgets();}).bounds(width/2-170,66,340,20).build());
             for(int row=0;row<rows;row++){
                 int index=page*rows+row;if(index>=entries.size())break;var entry=entries.get(index).getAsJsonObject();
                 final int selectedRow=row;
