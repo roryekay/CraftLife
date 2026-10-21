@@ -41,6 +41,7 @@ export function run(game,options={}){
   let reconnectTimer,stopped=false;
   let diagnosticInputUntil=0;
   let switching=false;
+  let endingPhase=0,guestPid=0,endingReady=0,endingLast=0;
   let inputTraceTime=0;
   let minecraftMovement=options.movement??!options.diagnostics,lastMovement;
   function heartbeat(){return encode(9,0,scene,[],[screen?1:0,minecraftMovement?1:0,chat?1:0]);}
@@ -87,11 +88,16 @@ export function run(game,options={}){
     if(from.address!=='127.0.0.1'||![server,...(hl1?[25613]:[])].includes(from.port))return;
     try{
       const p=decode(b);
+      if(endingPhase&&[2,3,5,32].includes(p.kind))return;
       if(p.kind===4){
-        if(p.scene!==scene){scene=p.scene;seq=0;mask=0;lastMovement=null;pending.clear();knownBlocks.clear();installedBlocks.clear();pendingBlocks.clear();blockAttempts.clear();send({t:'scene',name:`${game}:${p.map}`,epoch:scene});console.log(`Scene ${p.map}, epoch ${scene}`);}
+        if(p.scene!==scene){endingPhase=endingReady=0;scene=p.scene;seq=0;mask=0;lastMovement=null;pending.clear();knownBlocks.clear();installedBlocks.clear();pendingBlocks.clear();blockAttempts.clear();send({t:'scene',name:`${game}:${p.map}`,epoch:scene});console.log(`Scene ${p.map}, epoch ${scene}`);}
         map=p.map;if(travelPending&&!travelTargetMap)travelTargetMap=map;
       }else if(p.kind===1){
         cameraTime=Date.now();lastPose=p;feet=p.f.slice(3,6);if(p.f[9]>=10&&p.f[9]<=170&&p.i[2]>0&&p.i[3]>0)send({t:'cam',f:++lastCamera,p:p.f.slice(0,3),pl:feet,r:p.f.slice(6,9),eye:p.f.slice(10,13).some(v=>v!==0)?p.f.slice(10,13):p.f.slice(0,3),fov:p.f[9],fp:!!p.i[1],ctl:!!p.i[0],gd:lastMovement&&minecraftMovement?!!lastMovement.i[0]:!!p.i[4],sn:!!p.i[5],gm:minecraftMovement&&!!p.i[6],mb:lastMovement?.i[1]??0});
+      }else if(p.kind===33&&!hl1&&['mc_gman_ending','d3_breen_01'].includes(map)&&p.scene===scene&&[1,2].includes(p.i[0])){
+        // Source's authored scene events, never wall-clock guesses, drive the handoff.
+        if(p.i[0]===1||endingPhase)endingPhase=p.i[0];
+        if(endingPhase&&endingReady<endingPhase)send({t:'adapter_event',event:'valve_overworld',scene:'halflife2:mc_gman_ending',epoch:scene,phase:endingPhase,anchor:p.f.slice(0,3)});
       }else if(p.kind===31&&p.scene===scene){lastMovement=p;
       }else if(p.kind===2){if(lastNativeState&&p.f[0]!==lastNativeState.f[0])vitalJumps.push(p.f[0]-lastNativeState.f[0]);if(vitalJumps.length>1024)vitalJumps.shift();lastNativeState=p;if(Date.now()-lastVitals>100){lastVitals=Date.now();send({t:'host_health',hp:p.f[0],max:p.f[1]});}}
       else if(p.kind===3)inputs(p);
@@ -120,10 +126,13 @@ export function run(game,options={}){
     ws.onmessage=e=>{try{
       if(connection!==ws||stopped)return;
       const m=JSON.parse(e.data);
-      if(m.t==='hello')ws.send('{"t":"attach","v":1}');
+      if(m.t==='hello'){guestPid=Number.isInteger(m.pid)&&m.pid>0&&m.pid<2147483647?m.pid:0;ws.send('{"t":"attach","v":1}');}
       else if(m.t==='attached'){
         attached=!!m.ok;if(!attached){console.error('Another adapter owns Minecraft');ws.close();return;}
         console.log(`Minecraft attached for ${game}`);if(scene)send({t:'scene',name:`${game}:${map}`,epoch:scene});
+      }else if(m.t==='overworld_ready'&&!hl1&&m.epoch===scene&&m.phase===endingPhase&&[1,2].includes(m.phase)){
+        endingReady=m.phase;console.log(`Overworld phase ${endingReady} saved/ready`);
+        if(endingReady===2&&guestPid){command(34,[],[guestPid],{t:'ending'});endingLast=Date.now();}
       }else if(m.t==='guest_state'){guestState=Date.now();screen=!!m.screen;chat=!!m.chat;item=m.item;lastState=m;}
       else if(m.t==='movement'&&minecraftMovement&&lastPose?.i[6]){
         if(!Array.isArray(m.delta)||m.delta.length!==3||!m.delta.every(v=>Number.isFinite(v)&&Math.abs(v)<=16)||!Array.isArray(m.velocity)||m.velocity.length!==3||!m.velocity.every(v=>Number.isFinite(v)&&Math.abs(v)<=16)||!Number.isInteger(m.flags)||m.flags<0||m.flags>3)throw Error('Invalid movement');
@@ -173,6 +182,7 @@ export function run(game,options={}){
   socket.bind(port,'127.0.0.1',()=>{console.log(`Listening on 127.0.0.1:${port}`);connect();});
   socket.on('error',e=>{console.error(e);process.exitCode=1;socket.close();});
   const timer=setInterval(()=>{
+    if(endingReady===2&&guestPid&&Date.now()-endingLast>500){command(34,[],[guestPid],{t:'ending'});endingLast=Date.now();}
     if(hostPid){try{process.kill(hostPid,0);}catch(error){if(error.code==='ESRCH'){close();return;}}}
     if(attached&&Date.now()-guestState<500&&Date.now()-cameraTime<500){
       const beat=heartbeat();socket.send(beat,server,'127.0.0.1');if(hl1)socket.send(beat,25613,'127.0.0.1');

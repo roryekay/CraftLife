@@ -28,6 +28,17 @@ float4 composite(float4 pos:SV_Position,float2 uv:TEXCOORD):SV_Target{
     float nativeD=tex2D(ReShade::DepthBuffer,uv).x;if(HostReversedZ)nativeD=1-nativeD;
     float nativeZ=HostPlanes.x*HostPlanes.y/max(.00001,HostPlanes.y-nativeD*(HostPlanes.y-HostPlanes.x));
     if(DepthGate&&currentZ>nativeZ+DepthBias)world=0;
+    // A native foreground can stand in a guest landscape. Source reports depth
+    // in inches (32 per block); this mode uses its supported default clip planes.
+    bool foreground=floor(McPlanes.z/8)-2*floor(McPlanes.z/16)>.5;
+    if(foreground){
+        float actorZ=(3.0*32768.0/max(.00001,32768.0-nativeD*(32768.0-3.0)))/32.0;
+        float mask=smoothstep(.001,.006,max(host.r,max(host.g,host.b)));
+        // Some D3D9 drivers do not expose actor depth. The ending stage has a
+        // deliberately cleared black backdrop, allowing a bounded fallback.
+        if(nativeD>.000001&&nativeD<.999999&&actorZ>currentZ+.04)mask=0;
+        world*=1-mask;
+    }
     float3 color=world.rgb+host.rgb*(1-world.a);
     color=overlay.rgb+color*(1-overlay.a);
     float2 delta=(uv-McCursor.xy)*float2(BUFFER_WIDTH,BUFFER_HEIGHT);

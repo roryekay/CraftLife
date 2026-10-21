@@ -29,9 +29,11 @@ public final class HostState {
             (float)number(r,0),(float)number(r,1),(float)number(r,2),fov,
             !m.has("fp") || m.get("fp").getAsBoolean(),number(feet,0),number(feet,1),number(feet,2),
             !m.has("ctl") || m.get("ctl").getAsBoolean(),number(eye,0),number(eye,1),number(eye,2),m.has("gd")&&m.get("gd").getAsBoolean(),m.has("sn")&&m.get("sn").getAsBoolean(),m.has("gm")&&m.get("gm").getAsBoolean(),m.has("mb")?(m.get("mb").getAsInt()&7):0,System.nanoTime());
+        var o=BridgeClient.hostOrigin;
+        if(o!=net.minecraft.world.phys.Vec3.ZERO)next=new Pose(next.hostFrame(),next.x()+o.x,next.y()+o.y,next.z()+o.z,next.yaw(),next.pitch(),next.roll(),next.fov(),next.firstPerson(),next.px()+o.x,next.py()+o.y,next.pz()+o.z,false,next.ex()+o.x,next.ey()+o.y,next.ez()+o.z,next.grounded(),next.crouched(),false,0,next.receivedNanos());
         owner=source; latest=next;
     }
-    static void disconnect(Object source) { if (owner==source) { latest=null; owner=null; } }
+    static void disconnect(Object source) { if (owner==source) { latest=null; frame=null; owner=null; } }
     public static Pose live() {
         Pose p=latest;
         return p!=null && System.nanoTime()-p.receivedNanos()<TIMEOUT_NANOS ? p : null;

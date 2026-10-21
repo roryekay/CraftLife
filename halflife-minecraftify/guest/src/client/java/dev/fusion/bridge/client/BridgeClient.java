@@ -31,6 +31,9 @@ import net.minecraft.world.phys.Vec3;
 public final class BridgeClient implements ClientModInitializer {
     public static Runnable travelMenu=()->{};
     public static java.util.function.Consumer<JsonObject> menuAction=message->{};
+    public static java.util.function.Consumer<JsonObject> adapterMessage=message->{};
+    public static Runnable releaseHost=()->{};
+    public static volatile Vec3 hostOrigin=Vec3.ZERO;
     private static final String WORLD=System.getProperty("minecraftify.world","minecraftify-sandbox");
     private Vec3 animationFeet;
     private boolean requested;
@@ -39,13 +42,14 @@ public final class BridgeClient implements ClientModInitializer {
     private HostLink link;
     @Override public void onInitializeClient() {
         link=HostLink.launch();
+        releaseHost=link::releaseOwner;
         ClientTickEvents.START_CLIENT_TICK.register(GuestMovement::begin);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(mc->{try{link.stop(1000);}catch(InterruptedException e){Thread.currentThread().interrupt();}});
         ServerTickEvents.END_SERVER_TICK.register(server->{
             var p=HostState.live();
             Bridge.interactionEye=p==null?null:new Vec3(p.ex(),p.ey(),p.ez());
-            boolean sandbox=Boolean.getBoolean("minecraftify.autoWorld")&&server.getWorldData().getLevelName().equals("Minecraftify Sandbox");
+            boolean sandbox=!Bridge.freeMovement&&Boolean.getBoolean("minecraftify.autoWorld")&&server.getWorldData().getLevelName().equals("Minecraftify Sandbox");
             for(var player:server.getPlayerList().getPlayers()) {
                 // The camera-driven guest does not implement a second host movement simulation.
                 // Apply only while connected. A void Creative sandbox avoids survival damage assumptions.
@@ -90,7 +94,7 @@ public final class BridgeClient implements ClientModInitializer {
         } else if(mc.player!=null) {
             animationFeet=null;
             var server=mc.getSingleplayerServer();
-            boolean sandbox=Boolean.getBoolean("minecraftify.autoWorld")&&server!=null&&server.getWorldData().getLevelName().equals("Minecraftify Sandbox");
+            boolean sandbox=!Bridge.freeMovement&&Boolean.getBoolean("minecraftify.autoWorld")&&server!=null&&server.getWorldData().getLevelName().equals("Minecraftify Sandbox");
             mc.player.setNoGravity(sandbox);mc.player.noPhysics=sandbox;
             if(sandbox) {
                 mc.player.setDeltaMovement(Vec3.ZERO);
@@ -107,6 +111,10 @@ public final class BridgeClient implements ClientModInitializer {
             event.addProperty("screen",mc.gui.screen()!=null);
             event.addProperty("chat",mc.gui.screen() instanceof net.minecraft.client.gui.screens.ChatScreen);
             event.addProperty("gamemode",mc.gameMode.getPlayerMode().getName());
+            event.addProperty("dimension",mc.level.dimension().identifier().toString());
+            event.addProperty("freeMovement",Bridge.freeMovement);
+            event.addProperty("noPhysics",mc.player.noPhysics);
+            event.addProperty("noGravity",mc.player.isNoGravity());
             event.addProperty("uiWidth",mc.getWindow().getGuiScaledWidth());event.addProperty("uiHeight",mc.getWindow().getGuiScaledHeight());
             event.addProperty("hp",mc.player.getHealth());
             event.addProperty("movement",p!=null&&p.guestMovement());event.addProperty("gliding",mc.player.isFallFlying());event.addProperty("sprinting",mc.player.isSprinting());

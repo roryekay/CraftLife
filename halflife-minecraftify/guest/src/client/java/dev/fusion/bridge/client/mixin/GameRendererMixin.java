@@ -23,7 +23,7 @@ abstract class GameRendererMixin {
 		index = 5
 	)
 	private boolean passthrough$noSky(final boolean shouldRenderSky) {
-		return shouldRenderSky && !Bridge.active;
+        return shouldRenderSky && (!Bridge.active||!Bridge.renderHostSky);
 	}
 
 	@Inject(

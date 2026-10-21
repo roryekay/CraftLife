@@ -30,6 +30,6 @@ inline bool descriptor(const uint8_t* d,Frame& f) {
     return !(f.sequence&1)&&f.capture>0&&f.width>0&&f.height>0&&f.width<=max_width&&f.height<=max_height&&
         uint64_t(f.width)*f.height*12<=slot_stride&&std::isfinite(f.near_clip)&&std::isfinite(f.far_clip)&&
         f.near_clip>0&&f.far_clip>f.near_clip&&std::isfinite(f.fov)&&f.fov>=10&&f.fov<=170&&
-        std::isfinite(f.x)&&std::isfinite(f.y)&&std::isfinite(f.z)&&std::isfinite(f.yaw)&&std::isfinite(f.pitch)&&std::isfinite(f.roll)&&!(f.flags&~7u);
+        std::isfinite(f.x)&&std::isfinite(f.y)&&std::isfinite(f.z)&&std::isfinite(f.yaw)&&std::isfinite(f.pitch)&&std::isfinite(f.roll)&&!(f.flags&~15u);
 }
 }

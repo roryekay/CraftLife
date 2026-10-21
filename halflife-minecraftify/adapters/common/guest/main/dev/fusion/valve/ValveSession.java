@@ -31,6 +31,13 @@ public final class ValveSession implements ModInitializer {
     private final Set<BlockPos> replay=new HashSet<>();
     private final Map<String,Map<BlockPos,BlockState>> scenes=new HashMap<>();
     @Override public void onInitialize(){
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler,sender,s)->{
+            var p=handler.player;
+            if(p.entityTags().contains("minecraftify:ending-protection")){
+                p.setPermanentlyInvulnerable(false);p.removeTag("minecraftify:ending-protection");p.addTag("minecraftify:overworld-ending");
+            }
+            if(p.entityTags().contains("minecraftify:overworld-ending"))Bridge.freeMovement=true;
+        });
         net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.COPY_FROM.register((oldPlayer,newPlayer,alive)->{
             for(String tag:oldPlayer.entityTags())if(tag.startsWith("minecraftify:"))newPlayer.addTag(tag);
         });
@@ -55,6 +62,7 @@ public final class ValveSession implements ModInitializer {
             if(state.isAir())map.remove(pos);else if(map.size()<65536)map.put(pos,state);dirty=true;
         };
         ServerTickEvents.END_SERVER_TICK.register(s->{
+            if(s.getPlayerList().getPlayers().stream().anyMatch(p->p.entityTags().contains("minecraftify:overworld-ending")))Bridge.freeMovement=true;
             if(!Bridge.active)return;
             var iterator=replay.iterator();
             for(int count=0;count<32&&iterator.hasNext();count++){
@@ -103,6 +111,13 @@ public final class ValveSession implements ModInitializer {
     }
     private void scene(JsonObject m){
         if(server==null)return;String next=m.get("name").getAsString();if(!next.matches("halflife2?:[a-z0-9_]{1,63}"))return;
+        if(Bridge.freeMovement){
+            Bridge.freeMovement=false;
+            for(var p:server.getPlayerList().getPlayers()){
+                p.removeTag("minecraftify:overworld-ending");
+                p.teleportTo(server.overworld(),0,64,0,java.util.Set.of(),0,0,false);
+            }
+        }
         System.setProperty("minecraftify.game",next.substring(0,next.indexOf(':')));
         GameplayEvents.applyingHost=true;
         try{

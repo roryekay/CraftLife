@@ -89,6 +89,7 @@ public final class FrameExporter {
 		long captureNanos;
 		double cameraX, cameraY, cameraZ;
         float fov;
+        boolean nativeForeground;
 		double steveX, steveY, steveZ;
 
 		void allocate(final int w, final int h) {
@@ -198,13 +199,15 @@ public final class FrameExporter {
 		c.far = far;
 		c.frame = ++frameCounter;
 		c.captureNanos = now;
-		c.cameraX = cameraX; c.cameraY = cameraY; c.cameraZ = cameraZ;
+        var origin=BridgeClient.hostOrigin;
+        c.nativeForeground=!Bridge.renderHostSky;
+        c.cameraX = cameraX-origin.x; c.cameraY = cameraY-origin.y; c.cameraZ = cameraZ-origin.z;
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null) {
 			Vec3 at = mc.player.getPosition(mc.getDeltaTracker().getGameTimeDeltaPartialTick(false));
-			c.steveX = at.x;
-			c.steveY = at.y;
-			c.steveZ = at.z;
+            c.steveX = at.x-origin.x;
+            c.steveY = at.y-origin.y;
+            c.steveZ = at.z-origin.z;
 		} else {
 			c.steveX = c.steveY = c.steveZ = 0.0;
 		}
@@ -271,7 +274,7 @@ public final class FrameExporter {
 			m.set(FLOAT, desc + 32, NEAR);
 			m.set(FLOAT, desc + 36, c.far);
 			m.set(FLOAT, desc + 40, c.fov);
-			m.set(INT, desc + 44, (RenderSystem.getDevice().getDeviceInfo().isZZeroToOne() ? 1 : 0) | 2 | 4);
+            m.set(INT, desc + 44, (RenderSystem.getDevice().getDeviceInfo().isZZeroToOne() ? 1 : 0) | 2 | 4 | (c.nativeForeground?8:0));
 			m.set(DOUBLE, desc + 48, c.cameraX);
 			m.set(DOUBLE, desc + 56, c.cameraY);
 			m.set(DOUBLE, desc + 64, c.cameraZ);

@@ -16,6 +16,26 @@ entities=data[offset:offset+size].rstrip(b'\0').decode('latin1')
 for name in ('template_gman','lcs_gman_out','teleport_player_gman_1'):
     assert f'"targetname" "{name}"' in entities,name
 blocks=re.findall(r'\{[^{}]*\}',entities)
+marker='\n{\n"classname" "info_target"\n"targetname" "craftlife_overworld_marker"\n"origin" "0 0 0"\n}\n'
+for i,block in enumerate(blocks):
+    if '"targetname" "scene_change_3"' in block:
+        # Finish the authored transition, then use one actual camera for both
+        # the original actor and Minecraft instead of script_intro's two views.
+        block=re.sub(r'"OnTrigger"\s*"intro_outro_fx_1,[^"]*"\s*',lambda m:'' if any(v in m.group() for v in (',26.45,',',27.5,',',27.6,',',28.1,',',28.11,')) else m.group(),block)
+        blocks[i]=block[:-1]+'"OnTrigger" "craftlife_overworld_marker,AddOutput,origin 1 0 0,9.1,1"\n"OnTrigger" "intro_outro_fx_1,Deactivate,,9.1,1"\n"OnTrigger" "starfield,TurnOff,,9.1,1"\n"OnTrigger" "train_starfield,Stop,,9.1,1"\n}'
+    elif '"targetname" "view_gman_end_1"' in block:
+        blocks[i]=re.sub(r'"wait"\s*"[^"]*"','"wait" "-1"',block)
+    elif '"targetname" "Thedoor"' in block:
+        # Handoff follows the real door closing; hold credits until Minecraft saves.
+        block=re.sub(r'"OnFullyClosed"\s*"logic_ending_credits,[^"]*"\s*','',block)
+        blocks[i]=block[:-1]+'"OnFullyClosed" "craftlife_overworld_marker,AddOutput,origin 2 0 0,0,1"\n"OnOpen" "craftlife_overworld_marker,AddOutput,origin 1 1 0,0,1"\n}'
+# The full campaign gets the same event markers, retaining its original startup.
+campaign=('\n'.join(blocks)+marker+'\0').encode('latin1')
+campaign_data=bytearray(data);campaign_data.extend(b'\0'*((-len(data))%16))
+campaign_offset=len(campaign_data);campaign_data.extend(campaign)
+struct.pack_into('<ii',campaign_data,8,campaign_offset,len(campaign))
+maps=MOD/'maps';maps.mkdir(exist_ok=True)
+(maps/'d3_breen_01.bsp').write_bytes(campaign_data)
 for i,block in enumerate(blocks):
     if '"classname" "logic_auto"' in block:
         # Prevent unrelated chapter-opening schedules from competing with the ending.
@@ -26,7 +46,7 @@ outputs=[('template_gman','Spawn','',.1),('teleport_player_gman_1','Teleport',''
          ('lcs_gman_out','Start','',.8)]
 cue='\n{\n"classname" "logic_auto"\n"spawnflags" "1"\n"targetname" "craftlife_gman_ending"\n'
 cue+=''.join(f'"OnMapSpawn" "{target},{action},{value},{delay},1"\n' for target,action,value,delay in outputs)+'}\n'
-replacement=('\n'.join(blocks)+cue+'\0').encode('latin1')
+replacement=('\n'.join(blocks)+cue+marker+'\0').encode('latin1')
 patched=bytearray(data)
 patched.extend(b'\0'*((-len(patched))%16))
 new_offset=len(patched);patched.extend(replacement)

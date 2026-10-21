@@ -39,6 +39,45 @@ IVEngineServer* engine=nullptr;IPlayerInfoManager* players=nullptr;IServerTools*
 ICvar* cvars=nullptr;
 IEngineTrace* traces=nullptr;IBaseClientDLL* client=nullptr;CGlobalVars* globals=nullptr;
 mcvalve::Link link;bool paused=false;uint32_t sequence=0;char mapName[64]{};
+int endingPhase=0;Vector endingAnchor;ULONGLONG endingNotice=0;
+bool endingWorldHidden=false,endingPortalOpen=false,endingActorGone=false;float endingDrawWorld=1,endingClear=0,endingSky=1;
+void restoreEndingRender(){
+    if(!endingWorldHidden||!cvars)return;
+    if(auto* v=cvars->FindVar("r_drawworld"))v->SetValue(endingDrawWorld);
+    if(auto* v=cvars->FindVar("r_clear"))v->SetValue(endingClear);
+    if(auto* v=cvars->FindVar("r_drawskybox"))v->SetValue(endingSky);
+    endingWorldHidden=false;
+}
+void endingState(){
+    if(strcmp(mapName,"mc_gman_ending")&&strcmp(mapName,"d3_breen_01"))return;
+    int phase=0;Vector anchor;bool actor=false;
+    for(int i=1;i<engine->GetEntityCount();i++){
+        auto* e=engine->PEntityOfEntIndex(i);if(!e||e->IsFree()||!e->GetUnknown())continue;
+        auto* entity=e->GetUnknown()->GetBaseEntity();char name[128]{},value[128]{};
+        if(!tools->GetKeyValue(entity,"targetname",name,sizeof(name)))continue;
+        if(!strcmp(name,"craftlife_overworld_marker")&&tools->GetKeyValue(entity,"origin",value,sizeof(value))){float stage=0,door=0;if(std::sscanf(value,"%f %f",&stage,&door)==2){phase=int(stage);endingPortalOpen=door>0;}}
+        if(!strcmp(name,"gman")&&tools->GetKeyValue(entity,"origin",value,sizeof(value))){
+            actor=std::sscanf(value,"%f %f %f",&anchor.x,&anchor.y,&anchor.z)==3;
+            if(actor&&endingPortalOpen&&!endingActorGone&&anchor.x>=14105&&fabsf(anchor.y-15128)<36){
+                char effects[64]{};tools->GetKeyValue(entity,"effects",effects,sizeof(effects));tools->SetKeyValue(entity,"effects",float(atoi(effects)|EF_NODRAW));
+                e->ClearTransmitState();e->StateChanged();endingActorGone=true;Msg("[CraftLife] G-Man crossed the portal\n");
+            }
+        }
+    }
+    if(phase>=1&&phase<=2&&(actor||phase==2)){
+        if(phase!=endingPhase)Msg("[CraftLife] Overworld scene phase %d\n",phase);
+        endingPhase=phase;if(actor)endingAnchor=anchor;
+        if(!endingWorldHidden&&cvars){
+            if(auto* v=cvars->FindVar("r_drawworld")){endingDrawWorld=v->GetFloat();v->SetValue(0);}
+            if(auto* v=cvars->FindVar("r_clear")){endingClear=v->GetFloat();v->SetValue(1);}
+            if(auto* v=cvars->FindVar("r_drawskybox")){endingSky=v->GetFloat();v->SetValue(0);}
+            endingWorldHidden=true;
+        }
+    }
+    if(endingPhase&&GetTickCount64()-endingNotice>300){
+        endingNotice=GetTickCount64();mcvalve::Packet p;p.kind=mcvalve::Ending;p.i[0]=endingPhase;mcvalve::toGuest(endingAnchor.Base(),p.f);link.send(p);
+    }
+}
 IVEngineClient* engineClient=nullptr;
 IClientTools* clientTools=nullptr;
 fusion::PoseWriter compositePose;
@@ -113,6 +152,12 @@ struct Damage:CTakeDamageInfo{
 };
 void ack(const mcvalve::Packet& p,int status,int entity=0){mcvalve::Packet a;a.kind=mcvalve::Ack;a.sequence=p.sequence;a.i[0]=status;a.i[1]=entity;a.i[2]=p.i[0];link.send(a);}
 void process(edict_t* edict,IPlayerInfo* info,const mcvalve::Packet& p){
+    if(p.kind==mcvalve::FinishEnding){
+        if(endingPhase!=2||p.i[0]<=0){ack(p,-1);return;}
+        DWORD guestPid=DWORD(p.i[0]);
+        EnumWindows([](HWND w,LPARAM data)->BOOL{DWORD pid=0;GetWindowThreadProcessId(w,&pid);if(pid==DWORD(data)&&IsWindowVisible(w)){ShowWindow(w,SW_RESTORE);SetForegroundWindow(w);return FALSE;}return TRUE;},LPARAM(guestPid));
+        ack(p,1);engine->ServerCommand("quit\n");return;
+    }
     auto* unknown=edict->GetUnknown();Filter filter(unknown);trace_t hit;Ray_t ray;
     Vector a=native(p.f),b=native(p.f+3);
     if(p.kind==mcvalve::Movement){
@@ -332,23 +377,25 @@ public:
     globals=players->GetGlobalVars();
     return link.open(25612,25622);
  }
- void Unload()override{relativeMouse(false);if(mouseReleased&&client)client->IN_ActivateMouse();} void Pause()override{paused=true;}void UnPause()override{paused=false;}
+ void Unload()override{restoreEndingRender();relativeMouse(false);if(mouseReleased&&client)client->IN_ActivateMouse();} void Pause()override{paused=true;}void UnPause()override{paused=false;}
  const char* GetPluginDescription()override{return "Minecraftify Anything / Half-Life 2 development adapter";}
- void LevelInit(const char* name)override{strncpy(mapName,name,63);link.scene=uint32_t(GetTickCount64());link.lastSequence=0;blocks.clear();impacts.clear();testTarget.Term();testPlatform.Term();supportEntity.Term();motion.clear();nativeHidden=false;speedEntity=fireFilter=false;appliedSpeed=-1;potionFlags=appliedFlags=0;potionSpeed=potionJump=1;originalDamageFilter[0]=0;guestMovement=movementOwned=movementBindings=false;movementFlags=0;}
+ void LevelInit(const char* name)override{endingPhase=0;endingNotice=0;strncpy(mapName,name,63);link.scene=uint32_t(GetTickCount64());link.lastSequence=0;blocks.clear();impacts.clear();testTarget.Term();testPlatform.Term();supportEntity.Term();motion.clear();nativeHidden=false;speedEntity=fireFilter=false;appliedSpeed=-1;potionFlags=appliedFlags=0;potionSpeed=potionJump=1;originalDamageFilter[0]=0;guestMovement=movementOwned=movementBindings=false;movementFlags=0;}
  void ServerActivate(edict_t*,int,int)override{}
  void GameFrame(bool simulating)override{
     if(paused||!globals||globals->maxClients!=1)return;
     auto* edict=engine->PEntityOfEntIndex(1);if(!edict||edict->IsFree())return;
     auto* player=players->GetPlayerInfo(edict);if(!player||!player->IsConnected())return;
+    endingState();
     mcvalve::Packet p;
     for(int n=0;n<128&&link.receive(p);n++){
         if(p.kind==mcvalve::Heartbeat){if(p.scene==link.scene){if(!link.active()){link.lastSequence=0;impacts.clear();}link.lease=GetTickCount64();inventory=p.i[0]!=0;chat=p.i[2]==1;guestMovement=p.i[1]==1;}continue;}
         if(!simulating||!link.active()||p.scene!=link.scene||p.sequence<=link.lastSequence)continue;
         link.lastSequence=p.sequence;
-        if(!player->IsDead()||p.kind==mcvalve::TestInspect||p.kind==mcvalve::TestRemove||p.kind==mcvalve::Projectile||p.kind==mcvalve::Blast||p.kind==mcvalve::Block)process(edict,player,p);
+        if(!player->IsDead()||p.kind==mcvalve::FinishEnding||p.kind==mcvalve::TestInspect||p.kind==mcvalve::TestRemove||p.kind==mcvalve::Projectile||p.kind==mcvalve::Blast||p.kind==mcvalve::Block)process(edict,player,p);
         else ack(p,0);
     }
-    bool wantMovement=link.active()&&guestMovement&&!player->IsDead();
+    bool endingScene=!strcmp(mapName,"mc_gman_ending")||(!strcmp(mapName,"d3_breen_01")&&endingPhase);
+    bool wantMovement=link.active()&&guestMovement&&!player->IsDead()&&!endingScene;
     if(simulating&&link.active())if(auto* platform=platformEdict()){
         float t=GetTickCount64()>platformStarted?float(GetTickCount64()-platformStarted)/1000.f:0;
         tools->SetKeyValue(platform->GetUnknown()->GetBaseEntity(),"origin",platformOrigin+Vector(16*sinf(t),12*sinf(t*.7f),8*sinf(t*.9f)));
@@ -451,7 +498,7 @@ public:
         cam.f[6]=180.f-view.angles.y;cam.f[7]=view.angles.x;cam.f[8]=-view.angles.z;
         cam.f[9]=mcvalve::verticalFov(view.fov,view.height>0?float(view.width)/view.height:16.f/9.f);
         Ray_t floorRay;Vector foot=player->GetAbsOrigin();floorRay.Init(foot+Vector(0,0,.5f),foot-Vector(0,0,2),player->GetPlayerMins(),player->GetPlayerMaxs());Filter floorFilter(edict->GetUnknown());trace_t floorHit;traces->TraceRay(floorRay,MASK_PLAYERSOLID,&floorFilter,&floorHit);
-        cam.i[0]=focused&&simulating&&!player->IsDead();cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;
+        cam.i[0]=focused&&simulating&&!player->IsDead()&&!endingPhase;cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;
         compositePose.publish({cam.f[0],cam.f[1],cam.f[2],cam.f[6],cam.f[7],cam.f[8],cam.f[9],view.height>0?float(view.width)/view.height:16.f/9});link.send(cam);
     }
     if(link.active()&&GetTickCount64()-lastTerrain>50){
@@ -468,7 +515,7 @@ public:
     mcvalve::Packet vitals;vitals.kind=mcvalve::Vitals;vitals.f[0]=float(player->GetHealth());vitals.f[1]=float(player->GetMaxHealth());vitals.i[1]=int(blocks.size());vitals.i[2]=link.active();vitals.i[3]=link.receivedKind;vitals.i[4]=link.receivedPort;vitals.i[5]=link.receivedSize;vitals.i[6]=link.receivedValid;vitals.i[7]=int(link.lastSequence);link.send(vitals);
     mcvalve::Packet map;map.kind=mcvalve::Scene;memcpy(map.f,mapName,64);link.send(map);
  }
- void LevelShutdown()override{link.lease=0;gravityOwned=false;}
+ void LevelShutdown()override{restoreEndingRender();endingPortalOpen=endingActorGone=false;link.lease=0;gravityOwned=false;}
  void ClientActive(edict_t*)override{}void ClientDisconnect(edict_t*)override{}
  void ClientPutInServer(edict_t*,const char*)override{}void SetCommandClient(int)override{}void ClientSettingsChanged(edict_t*)override{}
  PLUGIN_RESULT ClientConnect(bool*,edict_t*,const char*,const char*,char*,int)override{return PLUGIN_CONTINUE;}

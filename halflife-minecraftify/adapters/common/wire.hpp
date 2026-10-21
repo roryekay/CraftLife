@@ -16,7 +16,7 @@ enum Kind : uint16_t { Camera=1, Vitals=2, Input=3, Scene=4, Terrain=5,
     Heartbeat=9, Strike=10, Projectile=11, Blast=12, Pearl=13,
     Block=14, Health=15, Effect=16, Ui=17, Travel=18, ChangeMap=19,
     TestSpawn=20,TestInspect=21,TestRemove=22,TestAim=23,TestHealth=24,
-    TestInput=25,TestTeleport=26,TestBlock=27,TestRay=28,TestPlatform=29,Movement=30,MovementResult=31,Ack=100 };
+    TestInput=25,TestTeleport=26,TestBlock=27,TestRay=28,TestPlatform=29,Movement=30,MovementResult=31,Ending=33,FinishEnding=34,Ack=100 };
 // Explicit fixed-width little-endian IPC. Never send pointers or engine structs.
 struct Packet {
     uint32_t magicValue=magic;

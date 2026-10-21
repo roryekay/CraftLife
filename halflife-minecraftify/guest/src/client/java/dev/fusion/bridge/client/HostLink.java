@@ -12,6 +12,10 @@ import org.java_websocket.server.WebSocketServer;
 /** One local adapter owns input/camera; observers can receive events without taking over. */
 public final class HostLink extends WebSocketServer {
     private volatile WebSocket host;
+    public synchronized void releaseOwner() {
+        var previous=host;host=null;HostState.disconnect(previous);Bridge.active=false;
+        ClientInput.releaseAll(Minecraft.getInstance());
+    }
     private HostLink(int port) { super(new InetSocketAddress("127.0.0.1",port)); setReuseAddr(true); setDaemon(true); }
     static HostLink launch() {
         int port=Integer.getInteger("minecraftify.port",25610);
@@ -45,6 +49,8 @@ public final class HostLink extends WebSocketServer {
             }
             else if(ClientInput.TYPES.contains(type)) {
                 Minecraft mc=Minecraft.getInstance();mc.execute(()->{if(conn==host)try{ClientInput.handle(mc,m);}catch(RuntimeException e){Bridge.LOG.warn("invalid adapter input");}});
+            } else if(type.equals("adapter_event")) {
+                Minecraft.getInstance().execute(()->{if(conn==host)BridgeClient.adapterMessage.accept(m);});
             } else { JsonObject reply=new JsonObject();reply.addProperty("t","unsupported");reply.addProperty("type",type);conn.send(reply.toString()); }
         } catch(RuntimeException e) { conn.send("{\"t\":\"error\",\"reason\":\"invalid_message\"}"); }
     }

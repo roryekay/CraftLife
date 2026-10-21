@@ -16,7 +16,8 @@ int main() {
     put(p,24,uint32_t(0xffffffff));require(!fusion::descriptor(p,f),"oversized capture accepted");put(p,24,uint32_t(1280));
     put(p,32,std::numeric_limits<float>::quiet_NaN());require(!fusion::descriptor(p,f),"NaN planes accepted");put(p,32,.05f);
     put(p,48,std::numeric_limits<double>::infinity());require(!fusion::descriptor(p,f),"infinite camera accepted");put(p,48,0.0);
-    put(p,44,uint32_t(8));require(!fusion::descriptor(p,f),"unknown flags accepted");
+    put(p,44,uint32_t(15));require(fusion::descriptor(p,f),"native foreground capture refused");
+    put(p,44,uint32_t(16));require(!fusion::descriptor(p,f),"unknown flags accepted");
     minecraftify::BlankAdapter stub;minecraftify::Camera cam;require(!stub.camera(cam),"blank adapter enabled without host");
     std::cout<<"PASS: frame bounds, layout, incomplete writes, finite metadata and inactive stub\n";
 }

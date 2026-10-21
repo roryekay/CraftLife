@@ -18,7 +18,7 @@ abstract class FogRendererMixin {
 
 	@Inject(method = "updateBuffer", at = @At("HEAD"))
 	private void passthrough$noFog(final FogData fog, final CallbackInfo ci) {
-		if (Bridge.active) {
+		if (Bridge.active&&Bridge.renderHostSky) {
 			fog.environmentalStart = FAR_AWAY;
 			fog.environmentalEnd = FAR_AWAY * 2.0F;
 			fog.renderDistanceStart = FAR_AWAY;
