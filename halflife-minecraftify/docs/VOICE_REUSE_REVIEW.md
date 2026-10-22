@@ -1,8 +1,10 @@
 # Local G-Man voice preview workflow
 
 Status: Rory approved installation on 2026-10-21. Ten approved overrides are
-installed in the isolated mods. The HL2 time-freeze line uses take 18 without
-the stutter; the other lines use the approved Steve/no-Gordon/no-Doctor edits.
+installed in the isolated mods. The HL2 time-freeze line uses the approved
+whispered take 2's Steve after the original recorded Time, without a repeated
+Time or stutter. It was installed after Rory's explicit preview approval.
+The other lines use the approved Steve/no-Gordon/no-Doctor edits.
 No hosted voice generation, credits, subscriptions or paid APIs are used.
 Model downloads and inference run locally. Game assets and generated voices are
 kept under ignored `local/voice-patch/`, outside the source backup.
@@ -71,13 +73,11 @@ The generation script deliberately contains no installer or paid-service fallbac
 `tools/install-gman-voices.py` separately installs the approved local recordings,
 checks PCM headers/hashes, updates HL2 facial cues and confines writes to the
 isolated mod sound directories. It never writes through the original-game mounts.
+The installer defaults to the approved `--time-take whisper2`; `take18` remains
+an explicit local rollback option. Mouth cues follow the selected recording.
 
 The existing cross-game F8 catalog now includes six G-Man destinations: HL1's
 full ending, job offer, accepted offer and refused offer; HL2's opening and
 time-freeze ending. The menu's G-Man shortcut opens the last page. Existing
 destination indices remain stable. Direct scenes reuse the installed maps'
-own named actors/choreography. `tools/prepare-gman-scene.py` prepares an isolated
-`mc_gman_ending` variant of the owned HL2 map, replacing only its entity lump
-to run the ending choreography on map load. It also provides the renamed map's
-owned reflection textures locally. The original map stays unchanged, and the
-regular campaign ending is unaffected. No maps or recordings are included in source.
+own named actors/choreography; no maps or recordings are included in source.

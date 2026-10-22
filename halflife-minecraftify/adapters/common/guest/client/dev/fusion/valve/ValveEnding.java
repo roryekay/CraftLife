@@ -18,8 +18,21 @@ import net.minecraft.world.phys.Vec3;
 /** Original Source actor/door stay in Source. Minecraft supplies the saved landscape. */
 final class ValveEnding {
     static final ResourceKey<Level> OVERWORLD=ResourceKey.create(Registries.DIMENSION,Identifier.parse("minecraftify:overworld"));
-    private static int epoch,phase;
+    private static int epoch;
+    private static volatile int phase;
     private static BlockPos landing;
+    private static BlockPos portalBase;
+    private static volatile boolean portalOpen;
+    private static void portal(net.minecraft.server.level.ServerLevel level,boolean open){
+        if(portalBase==null||portalOpen==open)return;
+        GameplayEvents.applyingHost=true;
+        try{
+            var state=open?Blocks.NETHER_PORTAL.defaultBlockState().setValue(net.minecraft.world.level.block.NetherPortalBlock.AXIS,net.minecraft.core.Direction.Axis.X):Blocks.AIR.defaultBlockState();
+            for(int x=0;x<2;x++)for(int y=0;y<4;y++)level.setBlockAndUpdate(portalBase.offset(x,y,0),state);
+            portalOpen=open;
+            Bridge.LOG.info("Ending Minecraft portal {}",open?"opened":"closed");
+        }finally{GameplayEvents.applyingHost=false;}
+    }
     static void initialize(){BridgeClient.adapterMessage=ValveEnding::message;}
     private static void reply(int next,int token){
         JsonObject e=new JsonObject();e.addProperty("t","overworld_ready");e.addProperty("phase",next);e.addProperty("epoch",token);Bridge.events.accept(e.toString());
@@ -28,8 +41,11 @@ final class ValveEnding {
         if(!"valve_overworld".equals(m.get("event").getAsString())||!"halflife2:mc_gman_ending".equals(m.get("scene").getAsString()))return;
         int token=m.get("epoch").getAsInt(),next=m.get("phase").getAsInt();
         if(next!=1&&next!=2)return;
-        if(token!=epoch){if(next!=1)return;epoch=token;phase=0;landing=null;}
+        if(token!=epoch){if(next!=1)return;epoch=token;phase=0;landing=null;portalBase=null;portalOpen=false;}
         if(phase<0)return;
+        if(next==1&&phase==1&&m.has("portal")&&m.get("portal").getAsBoolean()&&!portalOpen){
+            var s=Minecraft.getInstance().getSingleplayerServer();if(s!=null)s.execute(()->{var l=s.getLevel(OVERWORLD);if(l!=null)portal(l,true);});
+        }
         if(next<=phase){reply(next,token);return;}
         if(next==2&&phase!=1)return;
         var mc=Minecraft.getInstance();var server=mc.getSingleplayerServer();if(server==null)return;
@@ -52,6 +68,9 @@ final class ValveEnding {
                 }
                 if(top<64||top>200){phase=0;Bridge.LOG.error("No safe Overworld landing generated; keeping native control");return;}
                 landing=new BlockPos(cx,top,cz);
+                // Stage this authored arrival in daylight; the normal clock
+                // continues advancing once Minecraft takes over.
+                server.getCommands().performPrefixedCommand(server.createCommandSourceStack(),"time set day");
                 GameplayEvents.applyingHost=true;
                 try{
                     // Small clearing for the original actor's walk to his door.
@@ -63,8 +82,9 @@ final class ValveEnding {
                     // Minecraft portal frame; the real actor walks through it.
                     int doorX=(int)Math.floor(cx+.5+(-15128.0/32-x));
                     int doorZ=(int)Math.floor(cz+.5+(-14113.0/32-z));
-                    for(int dx=-2;dx<=1;dx++)for(int dy=-1;dy<=3;dy++)
-                        if(dx==-2||dx==1||dy==-1||dy==3)level.setBlockAndUpdate(new BlockPos(doorX+dx,top+dy,doorZ),Blocks.OBSIDIAN.defaultBlockState());
+                    portalBase=new BlockPos(doorX,top,doorZ);
+                    for(int dx=-1;dx<=2;dx++)for(int dy=-1;dy<=4;dy++)
+                        if(dx==-1||dx==2||dy==-1||dy==4)level.setBlockAndUpdate(new BlockPos(doorX+dx,top+dy,doorZ),Blocks.OBSIDIAN.defaultBlockState());
                 }finally{GameplayEvents.applyingHost=false;}
                 BridgeClient.hostOrigin=new Vec3(cx+.5-x,top-y,cz+.5-z);
                 Bridge.LOG.info("Ending clearing prepared at {}, native anchor {} {} {}",landing,x,y,z);
@@ -81,6 +101,7 @@ final class ValveEnding {
             BridgeClient.releaseHost.run();Bridge.freeMovement=true;Bridge.renderHostSky=true;
             server.execute(()->{
                 var level=server.getLevel(OVERWORLD);if(level==null||landing==null){phase=1;return;}
+                portal(level,false);
                 for(var p:server.getPlayerList().getPlayers()){
                     p.teleportTo(level,landing.getX()+.5,landing.getY(),landing.getZ()+.5,java.util.Set.of(),p.getYRot(),0,false);
                     p.setNoGravity(false);p.noPhysics=false;p.setDeltaMovement(Vec3.ZERO);p.fallDistance=0;

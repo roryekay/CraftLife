@@ -26,6 +26,7 @@ typedef CHandle<CBaseEntity> EHANDLE;
 #include <tuple>
 #include <cstdio>
 #include <cctype>
+#include <vector>
 
 // Match the SDK's default initialization, with no dependency on game-DLL globals.
 CTakeDamageInfo::CTakeDamageInfo(){
@@ -40,12 +41,13 @@ ICvar* cvars=nullptr;
 IEngineTrace* traces=nullptr;IBaseClientDLL* client=nullptr;CGlobalVars* globals=nullptr;
 mcvalve::Link link;bool paused=false;uint32_t sequence=0;char mapName[64]{};
 int endingPhase=0;Vector endingAnchor;ULONGLONG endingNotice=0;
-bool endingWorldHidden=false,endingPortalOpen=false,endingActorGone=false;float endingDrawWorld=1,endingClear=0,endingSky=1;
+bool endingWorldHidden=false,endingPortalOpen=false,endingActorGone=false,endingCinematic=false;float endingDrawWorld=1,endingClear=0,endingSky=1,ending3dSky=1;
 void restoreEndingRender(){
     if(!endingWorldHidden||!cvars)return;
     if(auto* v=cvars->FindVar("r_drawworld"))v->SetValue(endingDrawWorld);
     if(auto* v=cvars->FindVar("r_clear"))v->SetValue(endingClear);
     if(auto* v=cvars->FindVar("r_drawskybox"))v->SetValue(endingSky);
+    if(auto* v=cvars->FindVar("r_3dsky"))v->SetValue(ending3dSky);
     endingWorldHidden=false;
 }
 void endingState(){
@@ -55,7 +57,11 @@ void endingState(){
         auto* e=engine->PEntityOfEntIndex(i);if(!e||e->IsFree()||!e->GetUnknown())continue;
         auto* entity=e->GetUnknown()->GetBaseEntity();char name[128]{},value[128]{};
         if(!tools->GetKeyValue(entity,"targetname",name,sizeof(name)))continue;
-        if(!strcmp(name,"craftlife_overworld_marker")&&tools->GetKeyValue(entity,"origin",value,sizeof(value))){float stage=0,door=0;if(std::sscanf(value,"%f %f",&stage,&door)==2){phase=int(stage);endingPortalOpen=door>0;}}
+        if(endingPhase&&(!strcmp(name,"train_starfield")||!strcmp(name,"dynamic_light_tracktrain2"))){
+            char effects[64]{};tools->GetKeyValue(entity,"effects",effects,sizeof(effects));
+            if(!(atoi(effects)&EF_NODRAW)){tools->SetKeyValue(entity,"effects",float(atoi(effects)|EF_NODRAW));e->ClearTransmitState();e->StateChanged();}
+        }
+        if(!strcmp(name,"craftlife_overworld_marker")&&tools->GetKeyValue(entity,"origin",value,sizeof(value))){float stage=0,door=0;if(std::sscanf(value,"%f %f",&stage,&door)==2){phase=int(stage);endingPortalOpen=door>0;if(door<0)endingCinematic=true;}}
         if(!strcmp(name,"gman")&&tools->GetKeyValue(entity,"origin",value,sizeof(value))){
             actor=std::sscanf(value,"%f %f %f",&anchor.x,&anchor.y,&anchor.z)==3;
             if(actor&&endingPortalOpen&&!endingActorGone&&anchor.x>=14105&&fabsf(anchor.y-15128)<36){
@@ -68,14 +74,23 @@ void endingState(){
         if(phase!=endingPhase)Msg("[CraftLife] Overworld scene phase %d\n",phase);
         endingPhase=phase;if(actor)endingAnchor=anchor;
         if(!endingWorldHidden&&cvars){
+            // The original starfield movers and emitters are no longer needed
+            // once the authored transition hands scenery to Minecraft.
+            std::vector<CBaseEntity*> scenery;
+            for(auto* entity=tools->FirstEntity();entity;entity=tools->NextEntity(entity)){
+                char name[128]{};if(!tools->GetKeyValue(entity,"targetname",name,sizeof(name)))continue;
+                if(!strcmp(name,"train_starfield")||!strcmp(name,"starfield"))scenery.push_back(entity);
+            }
+            for(auto* entity:scenery){tools->RemoveEntity(entity);Msg("[CraftLife] Removed native starfield backdrop\n");}
             if(auto* v=cvars->FindVar("r_drawworld")){endingDrawWorld=v->GetFloat();v->SetValue(0);}
             if(auto* v=cvars->FindVar("r_clear")){endingClear=v->GetFloat();v->SetValue(1);}
             if(auto* v=cvars->FindVar("r_drawskybox")){endingSky=v->GetFloat();v->SetValue(0);}
+            if(auto* v=cvars->FindVar("r_3dsky")){ending3dSky=v->GetFloat();v->SetValue(0);}
             endingWorldHidden=true;
         }
     }
     if(endingPhase&&GetTickCount64()-endingNotice>300){
-        endingNotice=GetTickCount64();mcvalve::Packet p;p.kind=mcvalve::Ending;p.i[0]=endingPhase;mcvalve::toGuest(endingAnchor.Base(),p.f);link.send(p);
+        endingNotice=GetTickCount64();mcvalve::Packet p;p.kind=mcvalve::Ending;p.i[0]=endingPhase;p.i[1]=endingPortalOpen?1:0;mcvalve::toGuest(endingAnchor.Base(),p.f);link.send(p);
     }
 }
 IVEngineClient* engineClient=nullptr;
@@ -394,7 +409,7 @@ public:
         if(!player->IsDead()||p.kind==mcvalve::FinishEnding||p.kind==mcvalve::TestInspect||p.kind==mcvalve::TestRemove||p.kind==mcvalve::Projectile||p.kind==mcvalve::Blast||p.kind==mcvalve::Block)process(edict,player,p);
         else ack(p,0);
     }
-    bool endingScene=!strcmp(mapName,"mc_gman_ending")||(!strcmp(mapName,"d3_breen_01")&&endingPhase);
+    bool endingScene=!strcmp(mapName,"mc_gman_ending")||(!strcmp(mapName,"d3_breen_01")&&(endingPhase||endingCinematic));
     bool wantMovement=link.active()&&guestMovement&&!player->IsDead()&&!endingScene;
     if(simulating&&link.active())if(auto* platform=platformEdict()){
         float t=GetTickCount64()>platformStarted?float(GetTickCount64()-platformStarted)/1000.f:0;
@@ -498,7 +513,7 @@ public:
         cam.f[6]=180.f-view.angles.y;cam.f[7]=view.angles.x;cam.f[8]=-view.angles.z;
         cam.f[9]=mcvalve::verticalFov(view.fov,view.height>0?float(view.width)/view.height:16.f/9.f);
         Ray_t floorRay;Vector foot=player->GetAbsOrigin();floorRay.Init(foot+Vector(0,0,.5f),foot-Vector(0,0,2),player->GetPlayerMins(),player->GetPlayerMaxs());Filter floorFilter(edict->GetUnknown());trace_t floorHit;traces->TraceRay(floorRay,MASK_PLAYERSOLID,&floorFilter,&floorHit);
-        cam.i[0]=focused&&simulating&&!player->IsDead()&&!endingPhase;cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;
+        cam.i[0]=focused&&simulating&&!player->IsDead()&&!endingPhase&&!endingCinematic;cam.i[1]=!(clientTools&&clientTools->IsRenderingThirdPerson());cam.i[2]=view.width;cam.i[3]=view.height;cam.i[4]=movementOwned?movementGround:(floorHit.fraction<1&&!floorHit.startsolid);cam.i[5]=movementOwned?(movementFlags&2)!=0:player->GetPlayerMaxs().z<40;cam.i[6]=movementOwned;
         compositePose.publish({cam.f[0],cam.f[1],cam.f[2],cam.f[6],cam.f[7],cam.f[8],cam.f[9],view.height>0?float(view.width)/view.height:16.f/9});link.send(cam);
     }
     if(link.active()&&GetTickCount64()-lastTerrain>50){
@@ -515,7 +530,7 @@ public:
     mcvalve::Packet vitals;vitals.kind=mcvalve::Vitals;vitals.f[0]=float(player->GetHealth());vitals.f[1]=float(player->GetMaxHealth());vitals.i[1]=int(blocks.size());vitals.i[2]=link.active();vitals.i[3]=link.receivedKind;vitals.i[4]=link.receivedPort;vitals.i[5]=link.receivedSize;vitals.i[6]=link.receivedValid;vitals.i[7]=int(link.lastSequence);link.send(vitals);
     mcvalve::Packet map;map.kind=mcvalve::Scene;memcpy(map.f,mapName,64);link.send(map);
  }
- void LevelShutdown()override{restoreEndingRender();endingPortalOpen=endingActorGone=false;link.lease=0;gravityOwned=false;}
+ void LevelShutdown()override{restoreEndingRender();endingPortalOpen=endingActorGone=endingCinematic=false;link.lease=0;gravityOwned=false;}
  void ClientActive(edict_t*)override{}void ClientDisconnect(edict_t*)override{}
  void ClientPutInServer(edict_t*,const char*)override{}void SetCommandClient(int)override{}void ClientSettingsChanged(edict_t*)override{}
  PLUGIN_RESULT ClientConnect(bool*,edict_t*,const char*,const char*,char*,int)override{return PLUGIN_CONTINUE;}

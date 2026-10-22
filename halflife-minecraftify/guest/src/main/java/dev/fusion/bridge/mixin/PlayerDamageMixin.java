@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 abstract class PlayerDamageMixin {
     @Inject(method="hurtServer",at=@At("HEAD"),cancellable=true)
     private void damage(ServerLevel level,DamageSource source,float amount,CallbackInfoReturnable<Boolean> ci){
-        if(!Bridge.active&&(Object)this instanceof ServerPlayer&&Boolean.getBoolean("minecraftify.autoWorld")&&level.getServer().getWorldData().getLevelName().equals("Minecraftify Sandbox")){ci.setReturnValue(false);return;}
+        if(!Bridge.active&&!Bridge.freeMovement&&(Object)this instanceof ServerPlayer&&Boolean.getBoolean("minecraftify.autoWorld")&&level.getServer().getWorldData().getLevelName().equals("Minecraftify Sandbox")){ci.setReturnValue(false);return;}
         if(Bridge.active&&(Object)this instanceof ServerPlayer&&(source.is(DamageTypeTags.IS_EXPLOSION)||source.is(net.minecraft.world.damagesource.DamageTypes.ENDER_PEARL)||source.is(net.minecraft.world.damagesource.DamageTypes.FALL)||source.is(net.minecraft.world.damagesource.DamageTypes.FIREWORKS)))ci.setReturnValue(false);
     }
 }

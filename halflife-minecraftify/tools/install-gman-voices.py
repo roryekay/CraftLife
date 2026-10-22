@@ -4,7 +4,7 @@ Purchased/generated audio is never distributed with source. Run after generating
 and approving the local previews. Requires no network access or paid services.
 """
 from pathlib import Path
-import hashlib, json, re, struct, wave
+import argparse, hashlib, json, re, struct, wave
 
 ROOT=Path(__file__).resolve().parents[1]
 BASE=ROOT/'local/voice-patch'
@@ -18,7 +18,7 @@ def chunks(data):
         yield tag,data[pos+8:pos+8+n]
         pos+=8+n+n%2
 
-def facial_metadata(data,name):
+def facial_metadata(data,name,time_range=(1.80,2.68)):
     text=data.decode('cp1252')
     # Keep scene timing and other words; replace removed titles and old mouth cues.
     text=re.sub(r'\bDoctor\s+Freeman\b','Steve',text)
@@ -27,7 +27,7 @@ def facial_metadata(data,name):
     def word(match):
         punctuation=match[1];a=float(match[2]);z=float(match[3])
         if not match[4].strip():return '' # obsolete duplicate placeholder words
-        if name=='gman_exit01.wav':a,z=1.80,2.68
+        if name=='gman_exit01.wav':a,z=time_range
         if name=='gman_exit07.wav':a,z=5.75,6.71
         times=[a,a+(z-a)*.22,a+(z-a)*.36,a+(z-a)*.84,z]
         phones='\n'.join(f'{code} {phone} {times[i]:.3f} {times[i+1]:.3f} 1.000'
@@ -38,12 +38,17 @@ def facial_metadata(data,name):
     return text.encode('cp1252')
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--time-take',choices=['take18','whisper2'],default='whisper2')
+    args=parser.parse_args()
+    time_file='Time-Steve-whisper2-original-Time.wav' if args.time_take=='whisper2' else 'Time-Steve-take18-no-stutter.wav'
+    time_range=(1.39,2.14) if args.time_take=='whisper2' else (1.80,2.68)
     entries=[]
     for game in ('hl1','hl2'):
         for item in json.loads((BASE/f'edits-{game}-v2.json').read_text()):
             rel=Path(item['file'])
             source=BASE/'generated'/rel
-            if rel.name=='gman_exit01.wav':source=BASE/'previews/Time-Steve-take18-no-stutter.wav'
+            if rel.name=='gman_exit01.wav':source=BASE/'previews'/time_file
             assert source.is_file(),source
             entries.append((game,rel,source))
     report=[]
@@ -58,7 +63,7 @@ def main():
         items=list(chunks(data))
         if game=='hl2':
             original=dict(chunks((BASE/'source'/rel).read_bytes()))
-            metadata=facial_metadata(original[b'VDAT'],rel.name)
+            metadata=facial_metadata(original[b'VDAT'],rel.name,time_range)
             items=[(tag,value) for tag,value in items if tag!=b'VDAT']+[(b'VDAT',metadata)]
         body=b'WAVE'+b''.join(tag+struct.pack('<I',len(value))+value+(b'\0' if len(value)%2 else b'') for tag,value in items)
         output=b'RIFF'+struct.pack('<I',len(body))+body
@@ -81,7 +86,7 @@ def main():
         assert digest==hashlib.sha256(staged.read_bytes()).hexdigest()
         report.append(dict(file=str(rel),target=str(target),duration=duration,sha256=digest))
     (BASE/'installed-voices.json').write_text(json.dumps(dict(installed=True,paid_services_used=False,
-        ending='take 18, no stutter',files=report),indent=2))
+        ending=args.time_take,files=report),indent=2))
     print(f'Installed and verified {len(report)} approved WAV overrides in the isolated mods.')
 
 if __name__=='__main__':main()

@@ -97,7 +97,7 @@ export function run(game,options={}){
       }else if(p.kind===33&&!hl1&&['mc_gman_ending','d3_breen_01'].includes(map)&&p.scene===scene&&[1,2].includes(p.i[0])){
         // Source's authored scene events, never wall-clock guesses, drive the handoff.
         if(p.i[0]===1||endingPhase)endingPhase=p.i[0];
-        if(endingPhase&&endingReady<endingPhase)send({t:'adapter_event',event:'valve_overworld',scene:'halflife2:mc_gman_ending',epoch:scene,phase:endingPhase,anchor:p.f.slice(0,3)});
+        if(endingPhase&&(endingReady<endingPhase||(endingPhase===1&&p.i[1]===1)))send({t:'adapter_event',event:'valve_overworld',scene:'halflife2:mc_gman_ending',epoch:scene,phase:endingPhase,portal:p.i[1]===1,anchor:p.f.slice(0,3)});
       }else if(p.kind===31&&p.scene===scene){lastMovement=p;
       }else if(p.kind===2){if(lastNativeState&&p.f[0]!==lastNativeState.f[0])vitalJumps.push(p.f[0]-lastNativeState.f[0]);if(vitalJumps.length>1024)vitalJumps.shift();lastNativeState=p;if(Date.now()-lastVitals>100){lastVitals=Date.now();send({t:'host_health',hp:p.f[0],max:p.f[1]});}}
       else if(p.kind===3)inputs(p);
@@ -131,7 +131,7 @@ export function run(game,options={}){
         attached=!!m.ok;if(!attached){console.error('Another adapter owns Minecraft');ws.close();return;}
         console.log(`Minecraft attached for ${game}`);if(scene)send({t:'scene',name:`${game}:${map}`,epoch:scene});
       }else if(m.t==='overworld_ready'&&!hl1&&m.epoch===scene&&m.phase===endingPhase&&[1,2].includes(m.phase)){
-        endingReady=m.phase;console.log(`Overworld phase ${endingReady} saved/ready`);
+        if(endingReady!==m.phase)console.log(`Overworld phase ${m.phase} saved/ready`);endingReady=m.phase;
         if(endingReady===2&&guestPid){command(34,[],[guestPid],{t:'ending'});endingLast=Date.now();}
       }else if(m.t==='guest_state'){guestState=Date.now();screen=!!m.screen;chat=!!m.chat;item=m.item;lastState=m;}
       else if(m.t==='movement'&&minecraftMovement&&lastPose?.i[6]){

@@ -1,5 +1,18 @@
 # Protocol v1
 
+CraftLife ending extension: frame flag 8 requests a native foreground over a
+guest landscape. The guest's captured camera metadata remains in native world
+coordinates even when its level origin is translated. The owner-only
+`adapter_event` seam delegates bounded events to the installed game adapter.
+Valve `Ending` UDP kind 33 carries phase 1 (landscape) or 2 (door closed), a
+boolean portal-open flag in integer 1, the current scene epoch, and the native
+actor anchor. The relay accepts it only for
+the HL2 ending maps. `overworld_ready` acknowledges the same epoch and phase;
+only phase 2 permits kind 34 (`FinishEnding`) to focus the guest PID and quit
+the currently running native game. These packets do not contain commands or
+filesystem paths. Release clears pose, held input and camera ownership before
+ordinary saved Minecraft movement resumes.
+
 Transport: text JSON over WebSocket on `127.0.0.1:25610`. Override guest port with `-Dminecraftify.port=...`. Messages are at most16KiB. There is one active host owner and any number of read-only observers. The connection is local IPC, not an authenticated remote service; do not expose it to a network. No remote console, arbitrary game command, mission selector or legacy director relay exists.
 
 On connect the guest sends `{"t":"hello","v":1,"mapping":"Local\\MinecraftifyAnythingFrame","pid":1234}`. An adapter sends `{"t":"attach","v":1}` and waits for `{"t":"attached","ok":true}` before sending camera/input. A second active adapter receives `ok:false`; observers need no attach. The owner is released on connection close. Unknown owner messages return `unsupported`; malformed messages return `invalid_message`. Parse/validate received JSON in adapters; event fields are data.

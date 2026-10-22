@@ -1,13 +1,16 @@
 # HL2 ending and saved Overworld
 
 Current validation: guest/native builds and four C++ contract tests passed.
-The live ending reached both authored phases, retained the selected item and
-offhand counts, and saved a healthy player at (64.5, 68, 0.5) with ordinary
-physics and no host camera ownership. The latest foreground blend, crossing
-disappearance and saved-world reopen still require visual/live verification.
-A subsequent Minecraft relaunch hit Windows commit-memory exhaustion; the
-existing world remains saved. Revised whispered voice previews are local and
-have not replaced the approved installed take.
+Live ending tests reached both authored phases, retained selected item/offhand
+counts, and saved a healthy player at (64.5, 68, 0.5) with ordinary physics and
+no host camera ownership. Saved-world reopen passed repeatedly. Visual checks
+confirmed the original G-Man on Minecraft grass beside the active purple
+portal; the native crossing event hides him, then the portal closes before
+normal Minecraft control resumes. Inventory and both third-person views were
+visually verified after handoff. Automated short jump-key taps were inconclusive.
+A dark compositing fringe around the original model remains a visual limitation.
+The full campaign map carries the same authored triggers; a complete HL2
+campaign playthrough was not repeated. The approved whispered voice is installed.
 
 Checked 2026-10-21. GitHub searches covered Fabric NPCs, dimension travel and
 cinematic handoffs. No qualifying project supplied a Source actor composited
@@ -29,8 +32,9 @@ Source's original owned G-Man model, animation, dialogue and door choreography
 remain in Source. The isolated campaign map and ending shortcut add an
 info_target marker driven by scene events. Phase 1 prepares a generated forest
 clearing and translates the guest origin; phase 2 follows the actual door
-closing. The native world is hidden for the composited stage, leaving its actor
-and door in front of Minecraft. Shared frame flag 8 requests native foreground
+closing. Both native sky passes are disabled for the composited stage, leaving
+its original actor in front of Minecraft. The Source door-open event activates
+the matching Minecraft portal, which closes on handoff. Shared frame flag 8 requests native foreground
 occlusion, with a black-background fallback for unavailable D3D9 depth.
 
 The guest saves the player/inventory in minecraftify:overworld, releases host

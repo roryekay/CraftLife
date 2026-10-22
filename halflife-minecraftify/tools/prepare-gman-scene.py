@@ -25,6 +25,8 @@ for i,block in enumerate(blocks):
         blocks[i]=block[:-1]+'"OnTrigger" "craftlife_overworld_marker,AddOutput,origin 1 0 0,9.1,1"\n"OnTrigger" "intro_outro_fx_1,Deactivate,,9.1,1"\n"OnTrigger" "starfield,TurnOff,,9.1,1"\n"OnTrigger" "train_starfield,Stop,,9.1,1"\n}'
     elif '"targetname" "view_gman_end_1"' in block:
         blocks[i]=re.sub(r'"wait"\s*"[^"]*"','"wait" "-1"',block)
+    elif '"targetname" "lcs_gman_out"' in block:
+        blocks[i]=block[:-1]+'"OnStart" "craftlife_overworld_marker,AddOutput,origin 0 -1 0,0,1"\n}'
     elif '"targetname" "Thedoor"' in block:
         # Handoff follows the real door closing; hold credits until Minecraft saves.
         block=re.sub(r'"OnFullyClosed"\s*"logic_ending_credits,[^"]*"\s*','',block)
