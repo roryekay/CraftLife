@@ -9,7 +9,9 @@ items, blocks and movement. HalfCraft is not used.
 **[Download the private Windows installer ZIP from Releases](https://github.com/roryekay/CraftLife/releases).**
 Extract All, run **Install.cmd**, start a **CraftLife** profile in the official
 Minecraft Launcher, then run **Play Half-Life 1.cmd** or **Play Half-Life 2.cmd**.
-Steam and owned copies of both Half-Life games and Minecraft Java are required.
+Minecraft Java and an owned supported Steam copy of **Half-Life 1, Half-Life 2,
+or both** are required. Setup skips missing games; cross-game travel is enabled
+when both are installed. Run Install again after adding the second game.
 The current package includes the approved Steve voice patches, original G-Man's
 Minecraft portal ending, and the dark-outline fix. Setup prepares owned assets
 locally; no developer saves or accounts are included. No development tools or

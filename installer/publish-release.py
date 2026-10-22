@@ -6,8 +6,8 @@ from pathlib import Path
 import argparse,hashlib,json,os,subprocess,urllib.request
 REPO='roryekay/CraftLife'
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('archive',type=Path);p.add_argument('--commit',required=True);p.add_argument('--tag',default='v0.3.0-test.1');args=p.parse_args()
-    if args.archive.name!='CraftLife-0.3.0-test.1-windows-x64.zip':raise ValueError('Unexpected release file')
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('archive',type=Path);p.add_argument('--commit',required=True);p.add_argument('--tag',default='v0.3.0-test.2');args=p.parse_args()
+    if args.archive.name!='CraftLife-'+args.tag.removeprefix('v')+'-windows-x64.zip':raise ValueError('Unexpected release file')
     digest=hashlib.sha256(args.archive.read_bytes()).hexdigest();checksum=args.archive.with_suffix('.zip.sha256')
     if checksum.read_text().split()[0]!=digest:raise ValueError('Archive checksum differs')
     auth=subprocess.run(['git','credential','fill'],input='protocol=https\nhost=github.com\npath='+REPO+'.git\n\n',text=True,capture_output=True,check=True,env=dict(os.environ,GIT_TERMINAL_PROMPT='0',GCM_INTERACTIVE='Never'))
@@ -20,7 +20,7 @@ def main():
     base='https://api.github.com/repos/'+REPO
     repository=request(base)
     if repository['private'] is not True:raise ValueError('Repository must remain private')
-    body='Windows private test build matching the current CraftLife gameplay, approved Steve voices and G-Man Overworld ending, including the halo fix.\n\nDownload the ZIP, Extract All, run Install.cmd. Start a CraftLife profile in the official Minecraft Launcher, then use the matching Play button. Steam and owned Half-Life 1, Half-Life 2 and Minecraft Java are required. No development tools or paid APIs.\n\nFresh/repeat installer fixtures passed; all ten voice patches and both ending maps match the approved local outputs. Live installed-runtime smoke checks and limitations are recorded in TEST_RESULTS.md inside the ZIP. Full campaign certification is not claimed. Original game files, accounts and saves are excluded.\n\nSHA-256: `'+digest+'`'
+    body='Private Windows build with automatic detection of Half-Life 1 only, Half-Life 2 only, or both. Missing games are skipped; both installed games enable cross-game travel. Approved Steve voices and the G-Man Overworld ending/halo fix are retained.\n\nDownload the ZIP, Extract All, double-click Install.cmd. All bridge runtimes and mods are included. Start a CraftLife profile in the official Minecraft Launcher, which handles sign-in and any Minecraft/Fabric runtime downloads; then use the matching Play button. Requires Minecraft Java and at least one supported owned Steam Half-Life game. No development tools or paid APIs.\n\nInstaller fixtures cover HL1-only, HL2-only, both games, repair, missing-game launch refusal and adding the second game. TEST_RESULTS.md records validation and existing gameplay limits. Original game files, accounts and saves are excluded.\n\nSHA-256: `'+digest+'`'
     release=request(base+'/releases',json.dumps({'tag_name':args.tag,'target_commitish':args.commit,'name':'CraftLife '+args.tag+' — simple Windows installer','body':body,'draft':True,'prerelease':True}).encode())
     uploaded=[]
     for file in (args.archive,checksum):

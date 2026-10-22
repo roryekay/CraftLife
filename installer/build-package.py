@@ -4,7 +4,7 @@ import hashlib,json,os,shutil,subprocess,sys,urllib.request,zipfile
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from assets import make_patch,apply_patch,owned_voice,sha
 SOURCE=Path(__file__).resolve().parents[1];WORK=SOURCE.parent
-PORT=WORK/'halflife-minecraftify';VERSION='0.3.0-test.1'
+PORT=WORK/'halflife-minecraftify';VERSION='0.3.0-test.2'
 OUT=Path(os.environ.get('CRAFTLIFE_PACKAGE_DIR',str(PORT/'local/packages'/('CraftLife-'+VERSION+'-windows-x64'))))
 PYTHON=Path(sys.executable).parent
 NODE=Path(os.environ.get('CRAFTLIFE_NODE',str(Path.home()/'AppData/Local/hermes/node/node.exe')))

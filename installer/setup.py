@@ -31,13 +31,14 @@ def package():
 def running(name):
     result=subprocess.run(['tasklist.exe','/FI','IMAGENAME eq '+name,'/FO','CSV','/NH'],capture_output=True,text=True,creationflags=subprocess.CREATE_NO_WINDOW,check=True)
     return any(line.lower().startswith('"'+name.lower()+'"') for line in result.stdout.splitlines())
-def find_game(game):
+def find_game(game,steam_dir=None):
     import winreg
     libraries=[]
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Valve\Steam') as key:libraries.append(Path(winreg.QueryValueEx(key,'SteamPath')[0]))
     except OSError:pass
     libraries.append(Path(os.environ.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'Steam')
+    if steam_dir is not None:libraries=[steam_dir]
     for steam in list(libraries):
         vdf=steam/'steamapps/libraryfolders.vdf'
         if vdf.is_file():libraries += [Path(p.replace('\\\\','\\')) for p in re.findall(r'"path"\s*"([^"]+)"',vdf.read_text())]
@@ -45,9 +46,12 @@ def find_game(game):
     for library in libraries:
         folder=library/'steamapps/common'/title
         if (folder/exe).is_file():return folder
-    value=input('Enter the folder containing '+exe+' for '+title+': ').strip().strip('"')
-    if not value:raise ValueError('Game selection cancelled')
-    return Path(value)
+    return None
+
+def selected_payload(rel,games):
+    for game,(_,_,name) in GAMES.items():
+        if rel.startswith('payload/halflife-minecraftify/local/'+name+'/'):return game in games
+    return True
 def require_game(game,folder,manifest):
     exe=folder/GAMES[game][1]
     if not exe.is_file() or digest(exe)!=manifest['games'][game]['exe_sha256']:raise ValueError('Unsupported '+GAMES[game][0]+' executable. This build requires the reviewed Steam version; original files were preserved.')
@@ -103,7 +107,11 @@ def install(args):
     profile=minecraft/'launcher_profiles.json'
     if not profile.is_file():raise ValueError('Open the official Minecraft Launcher once, sign in yourself, then close it before setup')
     original_profiles=profile.read_bytes();profiles=read(profile);entries=profiles.setdefault('profiles',{})
-    games={game:(getattr(args,game) or find_game(game)).resolve() for game in GAMES}
+    games={}
+    for game in GAMES:
+        folder=getattr(args,game) or find_game(game,args.steam_dir)
+        if folder is not None:games[game]=folder.resolve()
+    if not games:raise ValueError('No Half-Life game found. Install Half-Life 1 or 2 through Steam, or pass --halflife or --halflife2 with its installed folder')
     for game,folder in games.items():
         if target.is_relative_to(folder) or folder.is_relative_to(target):raise ValueError('Install CraftLife outside the original Steam game folders')
         require_game(game,folder,manifest)
@@ -117,6 +125,7 @@ def install(args):
     voices=[]
     for rel in manifest['voice_recipes']:
         recipe=read(inside(ROOT,rel));game=recipe['game'];member=recipe['member']
+        if game not in games:continue
         voices.append((game,member,apply_patch(owned_voice(games[game],member),recipe)))
     target.mkdir(parents=True,exist_ok=True);(target/'.craftlife-owned').write_text('CraftLife installation schema 1\n')
     copy(ROOT/'manifest.json',target/'manifest.json')
@@ -127,17 +136,18 @@ def install(args):
     # Payload is explicit, with no original Steam/Minecraft assets or account data.
     for rel in manifest['files']:
         if not rel.startswith('payload/'):continue
+        if not selected_payload(rel,games):continue
         dest=destination(target,rel)
         copy(inside(ROOT,rel),dest,preserve=dest.name in ('options.txt','ReShade.ini','MinecraftifyPreset.ini'))
     for game,member,data in voices:
         dest=inside(runtimes[game]/'minecraftify',member);dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
     python=target/'tools/python/python.exe';port=target/'halflife-minecraftify'
-    subprocess.run([str(python),str(port/'tools/prepare-gman-scene.py'),'--source',str(games['halflife2']/'hl2/maps/d3_breen_01.bsp'),'--mod',str(runtimes['halflife2']/'minecraftify')],check=True)
-    for game in GAMES:
+    if 'halflife2' in games:subprocess.run([str(python),str(port/'tools/prepare-gman-scene.py'),'--source',str(games['halflife2']/'hl2/maps/d3_breen_01.bsp'),'--mod',str(runtimes['halflife2']/'minecraftify')],check=True)
+    for game in games:
         instance=port/'local'/('minecraft-'+game);mods=instance/'mods'
         for p in (target/'guest/mods').iterdir():copy(p,mods/p.name)
         copy(target/'guest/options.txt',instance/'options.txt',preserve=True)
-        entries['craftlife-'+game]={'name':'CraftLife - '+GAMES[game][0],'type':'custom','icon':'Grass','lastVersionId':VERSION,'gameDir':str(instance),'resolution':{'width':1280,'height':720},'javaArgs':'-Xmx3G --enable-native-access=ALL-UNNAMED -Dminecraftify.autoWorld=true -Dminecraftify.game='+game+' -Dminecraftify.world=minecraftify-valve-'+game}
+        entries['craftlife-'+game]={'name':'CraftLife - '+GAMES[game][0],'type':'custom','icon':'Grass','lastVersionId':VERSION,'gameDir':str(instance),'resolution':{'width':1280,'height':720},'javaArgs':'-Xmx3G --enable-native-access=ALL-UNNAMED -Dminecraftify.autoWorld=true -Dminecraftify.game='+game+' -Dminecraftify.games='+','.join(games)+' -Dminecraftify.world=minecraftify-valve-'+game}
     vanilla=minecraft/'versions/26.3/26.3.json'
     if not vanilla.exists():copy(ROOT/'vanilla-version.json',vanilla)
     write(fabric_path,fabric)
@@ -145,16 +155,17 @@ def install(args):
     stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S')+'-'+uuid.uuid4().hex[:8]
     backup=target/'backups'/('launcher-profiles-'+stamp+'.json');backup.parent.mkdir(exist_ok=True);backup.write_bytes(original_profiles)
     temp=profile.with_name(profile.name+'.craftlife-'+uuid.uuid4().hex+'.tmp');write(temp,profiles);os.replace(temp,profile)
-    owned={rel:digest(destination(target,rel)) for rel in manifest['files'] if rel.startswith(('payload/','guest/mods/','halflife-minecraftify/adapters/','halflife-minecraftify/tools/','tools/node/')) and not rel.endswith(('.ini','options.txt'))}
-    for game in GAMES:
+    owned={rel:digest(destination(target,rel)) for rel in manifest['files'] if selected_payload(rel,games) and rel.startswith(('payload/','guest/mods/','halflife-minecraftify/adapters/','halflife-minecraftify/tools/','tools/node/')) and not rel.endswith(('.ini','options.txt'))}
+    for game in games:
         executable=runtimes[game]/GAMES[game][1];owned[str(executable.relative_to(target))]=digest(executable)
         for p in (port/'local'/('minecraft-'+game)/'mods').glob('*.jar'):owned[str(p.relative_to(target))]=digest(p)
     owned.update({str((runtimes[g]/'minecraftify'/m).relative_to(target)):sha(b) for g,m,b in voices})
     for name in ('d3_breen_01.bsp','mc_gman_ending.bsp'):
+        if 'halflife2' not in games:continue
         p=runtimes['halflife2']/'minecraftify/maps'/name;owned[str(p.relative_to(target))]=digest(p)
     write(target/'installation.json',{'version':manifest['version'],'games':{g:str(p) for g,p in games.items()},'minecraft':str(minecraft),'files':owned})
     (ROOT/'installation-location.txt').write_text(str(target),encoding='utf-8')
-    print('\nCraftLife installed to '+str(target)+'\n\n1. Open the official Minecraft Launcher.\n2. Choose CraftLife - Half-Life or CraftLife - Half-Life 2 and Play.\n3. Wait for its isolated world, then run the matching Play button.\n\nF8 travels through both games. I: inventory. T: chat. F5: third person.\nThe G-Man ending and approved Steve voices are installed.\nExisting worlds and original Steam files were preserved.')
+    print('\nCraftLife installed to '+str(target)+'\nInstalled games: '+', '.join(GAMES[g][0] for g in games)+'\n\n1. Open the official Minecraft Launcher.\n2. Choose the matching CraftLife profile and Play; Launcher downloads its required Minecraft/Fabric components.\n3. Wait for its isolated world, then run the matching Play button.\n\nF8 opens travel; switching between games is available when both are installed.\nI: inventory. T: chat. F5: third person.\nApproved Steve voices are installed for each available game.\nExisting worlds and original Steam files were preserved.')
 def installed(args):
     if args.install_dir!=DEFAULT:return args.install_dir.resolve()
     if (ROOT/'installation.json').is_file():return ROOT
@@ -162,7 +173,8 @@ def installed(args):
     return Path(locator.read_text(encoding='utf-8')).resolve() if locator.exists() else DEFAULT
 def play(args):
     target=installed(args);receipt=read(target/'installation.json');manifest=read(target/'manifest.json')
-    for game,folder in receipt['games'].items():require_game(game,Path(folder),manifest)
+    if args.game not in receipt['games']:raise ValueError(GAMES[args.game][0]+' is not installed in CraftLife. Install the owned Steam game and run Install again to add it')
+    require_game(args.game,Path(receipt['games'][args.game]),manifest)
     for rel,value in receipt['files'].items():
         p=inside(target,rel.removeprefix('payload/'))
         if not p.is_file() or digest(p)!=value:raise ValueError('Installed file checksum failed: '+rel+'. Run Install again')
@@ -174,7 +186,7 @@ def play(args):
     subprocess.run(command,cwd=target/'halflife-minecraftify',check=True)
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('install','play','verify'));parser.add_argument('game',nargs='?',choices=tuple(GAMES));parser.add_argument('--install-dir',type=Path,default=DEFAULT);parser.add_argument('--minecraft-dir',type=Path,default=Path(os.environ['APPDATA'])/'.minecraft')
-    parser.add_argument('--halflife',type=Path);parser.add_argument('--halflife2',type=Path);parser.add_argument('--ending',action='store_true');args=parser.parse_args()
+    parser.add_argument('--halflife',type=Path);parser.add_argument('--halflife2',type=Path);parser.add_argument('--steam-dir',type=Path);parser.add_argument('--ending',action='store_true');args=parser.parse_args()
     try:
         if args.action=='install':install(args)
         elif args.action=='verify':package();print('Package checksums passed.')

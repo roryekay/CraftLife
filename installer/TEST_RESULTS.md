@@ -1,5 +1,12 @@
 # Windows installer validation — 2026-10-21
 
+October 22 installer update: `0.3.0-test.2` supports automatic HL1-only,
+HL2-only and both-game installation. Fixture checks cover each combination,
+missing-game launch refusal, and adding the second game while preserving
+progress. The guest compiles with unavailable travel tabs and keyboard group
+switching disabled using the installed profile's game list. No new live
+campaign or single-game menu visual test is claimed for this packaging update.
+
 Passed using the packaged Python and Node runtimes on this Windows computer:
 
 - SHA-256 package manifest verification; binaries match the currently installed working CraftLife build.

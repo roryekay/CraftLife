@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,existsSync,openSync,closeSync} from 'node:fs'
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import dgram from 'node:dgram';
+import {createHash} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {destination} from '../adapters/common/travel-catalog.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -14,6 +15,14 @@ try {
   const hl1=game==='halflife',runtime=path.join(root,'local',hl1?'runtime-halflife':'runtime-halflife2-v2');
   const executable=path.join(runtime,hl1?'hl.exe':'hl2.exe');
   if(!existsSync(executable))throw Error('Prepare the isolated native runtime first.');
+  const receipt=path.join(root,'..','installation.json');
+  if(existsSync(receipt)){
+    const installed=JSON.parse(readFileSync(receipt,'utf8')),original=installed.games?.[game];
+    if(!original)throw Error('This Half-Life game is not installed in CraftLife. Run Install again after installing it through Steam.');
+    const owned=path.join(original,hl1?'hl.exe':'hl2.exe');
+    const manifest=JSON.parse(readFileSync(path.join(root,'..','manifest.json'),'utf8'));
+    if(!existsSync(owned)||createHash('sha256').update(readFileSync(owned)).digest('hex')!==manifest.games[game].exe_sha256)throw Error('The selected owned Steam game is missing or unsupported; the current session was preserved.');
+  }
   const flag=name=>process.argv.find(s=>s.startsWith(`--${name}=`))?.slice(name.length+3);
   const selected=flag('destination');
   const entry=selected===undefined?{map:hl1?'c1a0':'d1_trainstation_01',encounter:0}:destination(game,Number(selected));
