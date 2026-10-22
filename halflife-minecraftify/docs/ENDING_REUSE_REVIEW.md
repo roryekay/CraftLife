@@ -8,6 +8,8 @@ confirmed the original G-Man on Minecraft grass beside the active purple
 portal; the native crossing event hides him, then the portal closes before
 normal Minecraft control resumes. Inventory and both third-person views were
 visually verified after handoff. Automated short jump-key taps were inconclusive.
+Normal Survival damage was verified after the sandbox protection was disabled
+for free Minecraft play: a local one-point damage command reduced health to 19.
 A dark compositing fringe around the original model remains a visual limitation.
 The full campaign map carries the same authored triggers; a complete HL2
 campaign playthrough was not repeated. The approved whispered voice is installed.
