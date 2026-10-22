@@ -10,7 +10,11 @@ normal Minecraft control resumes. Inventory and both third-person views were
 visually verified after handoff. Automated short jump-key taps were inconclusive.
 Normal Survival damage was verified after the sandbox protection was disabled
 for free Minecraft play: a local one-point damage command reduced health to 19.
-A dark compositing fringe around the original model remains a visual limitation.
+The dark compositing halo was removed by disabling native bloom and motion
+blur only while the ending uses its black matte. The close-up silhouette
+was checked against the Minecraft landscape; original values are restored
+on level shutdown/unload. The brightness-key fallback still depends on a
+cleared black native backdrop when D3D9 depth is unavailable.
 The full campaign map carries the same authored triggers; a complete HL2
 campaign playthrough was not repeated. The approved whispered voice is installed.
 

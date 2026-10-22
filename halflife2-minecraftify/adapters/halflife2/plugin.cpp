@@ -42,12 +42,15 @@ IEngineTrace* traces=nullptr;IBaseClientDLL* client=nullptr;CGlobalVars* globals
 mcvalve::Link link;bool paused=false;uint32_t sequence=0;char mapName[64]{};
 int endingPhase=0;Vector endingAnchor;ULONGLONG endingNotice=0;
 bool endingWorldHidden=false,endingPortalOpen=false,endingActorGone=false,endingCinematic=false;float endingDrawWorld=1,endingClear=0,endingSky=1,ending3dSky=1;
+float endingBloom=0,endingMotionBlur=1;
 void restoreEndingRender(){
     if(!endingWorldHidden||!cvars)return;
     if(auto* v=cvars->FindVar("r_drawworld"))v->SetValue(endingDrawWorld);
     if(auto* v=cvars->FindVar("r_clear"))v->SetValue(endingClear);
     if(auto* v=cvars->FindVar("r_drawskybox"))v->SetValue(endingSky);
     if(auto* v=cvars->FindVar("r_3dsky"))v->SetValue(ending3dSky);
+    if(auto* v=cvars->FindVar("mat_disable_bloom"))v->SetValue(endingBloom);
+    if(auto* v=cvars->FindVar("mat_motion_blur_enabled"))v->SetValue(endingMotionBlur);
     endingWorldHidden=false;
 }
 void endingState(){
@@ -86,6 +89,10 @@ void endingState(){
             if(auto* v=cvars->FindVar("r_clear")){endingClear=v->GetFloat();v->SetValue(1);}
             if(auto* v=cvars->FindVar("r_drawskybox")){endingSky=v->GetFloat();v->SetValue(0);}
             if(auto* v=cvars->FindVar("r_3dsky")){ending3dSky=v->GetFloat();v->SetValue(0);}
+            // Screen-space bloom/blur spreads actor color into the black matte;
+            // the compositor then mistakes that glow for an opaque silhouette.
+            if(auto* v=cvars->FindVar("mat_disable_bloom")){endingBloom=v->GetFloat();v->SetValue(1);}
+            if(auto* v=cvars->FindVar("mat_motion_blur_enabled")){endingMotionBlur=v->GetFloat();v->SetValue(0);}
             endingWorldHidden=true;
         }
     }
