@@ -6,6 +6,15 @@ items, blocks and movement. HalfCraft is not used.
 
 ## Play on the prepared computer
 
+**[Download the private Windows installer ZIP from Releases](https://github.com/roryekay/CraftLife/releases).**
+Extract All, run **Install.cmd**, start a **CraftLife** profile in the official
+Minecraft Launcher, then run **Play Half-Life 1.cmd** or **Play Half-Life 2.cmd**.
+Steam and owned copies of both Half-Life games and Minecraft Java are required.
+The current package includes the approved Steve voice patches, original G-Man's
+Minecraft portal ending, and the dark-outline fix. Setup prepares owned assets
+locally; no developer saves or accounts are included. No development tools or
+paid services are needed. See the [simple install guide](installer/INSTALL.md).
+
 Start either Minecraftify Half-Life profile in the official Minecraft Launcher,
 wait for its isolated world, then use **Play Half-Life 1.cmd** or
 **Play Half-Life 2.cmd** from the original prepared workspace.
@@ -42,9 +51,9 @@ Full campaign completion is not certified.
   This adapter uses the shared guest and common protocol from its sibling.
 - `SOURCE_MANIFEST.json`: SHA-256 hashes of the exported source snapshot.
 
-This repository is a **source backup**, not a bundled game or ready-to-run
-installation on another computer. Existing scripts expect Windows, prepared
-local SDK/toolchain directories, and owned Steam/Minecraft installations.
+This repository contains source; **Releases** provides the ready-to-install
+Windows player package. Developer build scripts still expect prepared local
+SDK/toolchain directories and owned Steam/Minecraft installations.
 Build caches, SDK checkouts, downloaded runtimes and game assets are deliberately
 excluded. Dependency versions and review limits are recorded in the
 [Valve reuse review](halflife-minecraftify/VALVE_REUSE_REVIEW.md) and

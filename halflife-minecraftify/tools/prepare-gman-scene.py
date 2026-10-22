@@ -4,11 +4,17 @@ No BSP is distributed. Geometry, lighting and packed assets remain byte-for-byte
 in place; only the entity lump and its header descriptor change in the mod copy.
 """
 from pathlib import Path
-import hashlib,io,json,re,shutil,struct,zipfile
+import argparse,hashlib,io,json,re,shutil,struct,zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
-SOURCE=Path('C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/hl2/maps/d3_breen_01.bsp')
-MOD=ROOT/'local/runtime-halflife2-v2/minecraftify'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--source',type=Path,default=Path('C:/Program Files (x86)/Steam/steamapps/common/Half-Life 2/hl2/maps/d3_breen_01.bsp'))
+parser.add_argument('--mod',type=Path,default=ROOT/'local/runtime-halflife2-v2/minecraftify')
+args=parser.parse_args()
+SOURCE=args.source
+MOD=args.mod
+MOD.mkdir(parents=True,exist_ok=True)
+(ROOT/'local/voice-patch').mkdir(parents=True,exist_ok=True)
 data=SOURCE.read_bytes()
 assert data[:4]==b'VBSP' and struct.unpack_from('<i',data,4)[0] in (19,20,21)
 offset,size=struct.unpack_from('<ii',data,8)
